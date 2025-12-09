@@ -23,5 +23,5 @@ primary_region = 'iad'
   memory_mb = 16384
 
 [[mounts]]
-source = "storage"
+source = "app_data"
 destination = "/data"
