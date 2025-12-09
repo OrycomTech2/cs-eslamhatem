@@ -685,6 +685,7 @@ app.use('/api/courses', require("./routes/courseRoutes"));
 app.use('/api/lessons', require("./routes/lessonRoutes"));
 app.use('/api/assignments', require("./routes/assignmentRoutes"));
 app.use('/api/payment-requests', require('./routes/paymentRequestRoutes'));
+app.use('/api/r2', require('./routes/r2Routes'));
 
 app.use('/api/live', require("./routes/liveRoutes"));
 app.use('/api/chat', require("./routes/chatRoutes"));
