@@ -25,3 +25,7 @@ primary_region = 'iad'
 [[mounts]]
 source = "app_data"
 destination = "/data"
+
+[http]
+  [http.response]
+    max_request_body_size = 4096 # 4GB
