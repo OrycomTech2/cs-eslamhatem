@@ -14,8 +14,8 @@ const ChatRoom = require('./models/ChatRoom');
 const searchRoutes = require("./routes/searchRoutes");
 
 // Configuration
-const PORT = 5000;
-const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'http://127.0.0.1:5500/';
+const PORT = 8080;
+const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'https://www.cs-islamhatem.com';
 const MONGO_URI = process.env.MONGO_URI || '*';
 
 // Initialize Server
@@ -25,7 +25,7 @@ const server = http.createServer(app);
 // Enhanced Socket.IO Configuration
 const io = new Server(server, {
   cors: {
-    origin: [FRONTEND_ORIGIN, 'http://127.0.0.1:5500'],
+    origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com'],
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -44,7 +44,7 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, 'http://127.0.0.1:5500'],
+  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true,
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -74,7 +74,7 @@ app.use(express.urlencoded({ limit: '10gb', extended: true }));
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
-  
+
 
 // Database Connection
 mongoose.connect(MONGO_URI, {
@@ -762,12 +762,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-server.listen(5000, () => {
+server.listen(8080, () => {
   console.log(`
-    🚀 Server running on ://localhost:${PORT}
-    📡 Socket.IO: ws://localhost:${PORT}/socket.io/
-    🎮 PeerJS: ://localhost:${PORT}/peerjs
-    💬 Chat: ws://localhost:${PORT}
+    🚀 Server running on ://0.0.0.0:${PORT}
+    📡 Socket.IO: ws://0.0.0.0:${PORT}/socket.io/
+    🎮 PeerJS: ://0.0.0.0:${PORT}/peerjs
+    💬 Chat: ws://0.0.0.0:${PORT}
     🌐 CORS Origin: ${FRONTEND_ORIGIN}
     🏫 Active rooms: ${Object.keys(activeRooms).length}
   `);
@@ -783,6 +783,3 @@ process.on('SIGTERM', () => {
     });
   });
 });
-
-
-
