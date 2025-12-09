@@ -1,0 +1,207 @@
+const express = require("express");
+const router = express.Router();
+const uploadMemory = require("../middleware/multerMemory");
+const path = require("path");
+const Submission = require("../models/Submission");
+const SubscriptionCode = require("../models/SubscriptionCode");
+const authenticateAdmin = require("../middleware/authenticateAdmin");
+const {
+  createLesson, listLessons, updateLesson, deleteLesson,
+  adminLogin,
+  getProfile,
+  updateProfile,
+  changePassword,
+  createCourse,
+  updateCourse,
+  deleteCourse,
+  listCourses,
+  createAssignment,
+  updateAssignment,
+  deleteAssignment,
+  listAssignments,
+  listSubmissions,
+  scheduleLiveSession,
+  updateLiveSession,
+  cancelLiveSession,
+  listSessions,
+  listStudents,
+  getAllUsers,
+  deleteUser,
+  createAssistant,
+  updateAssistant,
+  deleteAssistant,
+  listAssistants,
+  getAssistantProfile,
+  getLessonById, 
+  uploadLessonFiles,
+  createQuiz,
+  listQuizzes,
+  deleteQuiz,
+  updateQuiz,
+  listQuizSubmissions,
+  reviewSubmission,
+  getStudentById,
+  updateStudent,
+  deleteStudent,
+  assignCourseToStudent,
+  removeCourseFromStudent,
+  toggleCompilerAccess,
+  uploadPDF,
+  getQuizPDF,
+  gradeAssignment,
+  gradeQuizAttempt,
+  getQuizSubmissionById,
+  getAvailableLiveSessions,
+  generateSubscriptionCode
+} = require("../controllers/adminController");
+
+const { deleteFromR2 } = require("../services/r2Service");
+
+router.get("/students", authenticateAdmin, listStudents);
+router.get("/students/:id", authenticateAdmin, getStudentById);
+router.put("/students/:id", authenticateAdmin, updateStudent);
+router.delete("/students/:id", authenticateAdmin, deleteStudent);
+
+// Course assignment
+router.post("/students/:id/courses", authenticateAdmin, assignCourseToStudent);
+router.delete("/students/:id/courses", authenticateAdmin, removeCourseFromStudent);
+
+// Compiler access
+router.put("/students/:id/compiler", authenticateAdmin, toggleCompilerAccess);
+
+/* 🔑 Auth */
+router.post("/login", adminLogin);
+router.get("/profile", authenticateAdmin, getProfile);
+router.put("/profile", authenticateAdmin, uploadMemory.single("photo"), updateProfile);
+router.put("/change-password", authenticateAdmin, changePassword);
+
+/* 📚 Courses */
+router.post("/courses", authenticateAdmin, uploadMemory.single("thumbnail"), createCourse);
+router.get("/courses", authenticateAdmin, listCourses);
+router.put("/courses/:id", authenticateAdmin, uploadMemory.single("thumbnail"), updateCourse);
+router.delete("/courses/:id", authenticateAdmin, deleteCourse);
+
+/* 📝 Assignments */
+router.post("/assignments", authenticateAdmin, uploadMemory.single("pdf"), createAssignment);
+router.get("/assignments", authenticateAdmin, listAssignments);
+router.put("/assignments/:id", authenticateAdmin, uploadMemory.single("pdf"), updateAssignment);
+router.delete("/assignments/:id", authenticateAdmin, deleteAssignment);
+router.get("/assignments/submissions", authenticateAdmin, listSubmissions);
+
+// Updated delete submission route for R2
+router.delete("/assignments/submissions/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const submissionId = req.params.id;
+    
+    // Find the submission first
+    const submission = await Submission.findById(submissionId);
+    
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: 'Submission not found'
+      });
+    }
+    
+    // Delete file from R2 if it exists
+    if (submission.fileUrl) {
+      try {
+        await deleteFromR2(submission.fileUrl);
+      } catch (fileError) {
+        console.error('Error deleting file from R2:', fileError);
+        // Continue even if file deletion fails
+      }
+    }
+    
+    // Delete the submission from database
+    await Submission.findByIdAndDelete(submissionId);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Submission deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Error deleting submission:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting submission',
+      error: error.message
+    });
+  }
+});
+
+router.put("/assignments/submissions/:id/review", authenticateAdmin, reviewSubmission);
+router.put("/assignments/submissions/:id/grade", authenticateAdmin, gradeAssignment);
+
+/* 🎥 Live Sessions */
+router.post("/livesessions", authenticateAdmin, scheduleLiveSession);
+router.get("/livesessions", authenticateAdmin, listSessions);
+router.put("/livesessions/:id", authenticateAdmin, updateLiveSession);
+router.delete("/livesessions/:id", authenticateAdmin, cancelLiveSession);
+router.get("/available-live-sessions", authenticateAdmin, getAvailableLiveSessions);
+
+/* 👥 Users & Assistants */
+router.get("/users", authenticateAdmin, getAllUsers);
+router.delete("/users/:id", authenticateAdmin, deleteUser);
+router.post("/assistants", authenticateAdmin, createAssistant);
+router.get("/assistants", authenticateAdmin, listAssistants);
+router.put("/assistants/:id", authenticateAdmin, updateAssistant);
+router.delete("/assistants/:id", authenticateAdmin, deleteAssistant);
+router.get("/assistants/:id", authenticateAdmin, getAssistantProfile);
+
+/* 📚 Lessons */
+router.post(
+  "/lessons",
+  authenticateAdmin,
+  uploadMemory.fields([
+    { name: "material", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 },
+  ]),
+  createLesson
+);
+
+router.get("/lessons", authenticateAdmin, listLessons);
+router.put(
+  "/lessons/:id",
+  authenticateAdmin,
+  uploadMemory.fields([
+    { name: "material", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 },
+  ]),
+  updateLesson
+);
+router.delete("/lessons/:id", authenticateAdmin, deleteLesson);
+
+router.get("/lessons/:id", authenticateAdmin, getLessonById);
+
+// PUT upload lesson files
+router.put(
+  "/lessons/:id/files",
+  authenticateAdmin,
+  uploadMemory.fields([
+    { name: "material", maxCount: 1 },
+    { name: "video", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 }
+  ]),
+  uploadLessonFiles
+);
+
+/* ❓ Quizzes */
+router.post("/quizzes", authenticateAdmin, uploadMemory.single("pdfFile"), createQuiz);
+router.get("/quizzes", authenticateAdmin, listQuizzes);
+router.delete("/quizzes/:id", authenticateAdmin, deleteQuiz);
+router.put("/quizzes/:id", authenticateAdmin, uploadMemory.single("pdfFile"), updateQuiz);
+router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
+router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
+
+router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmission);
+router.put("/quizzes/attempts/:id/grade", authenticateAdmin, gradeQuizAttempt);
+router.get("/quizzes/:id/pdf", authenticateAdmin, getQuizPDF);
+
+/* 🔑 Subscription Codes */
+router.post("/subscription-codes", authenticateAdmin, generateSubscriptionCode);
+
+module.exports = router;
