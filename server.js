@@ -692,6 +692,11 @@ app.use('/api/chat', require("./routes/chatRoutes"));
 app.use('/api/help', require("./routes/helpRoutes"));
 app.use('/api/quizzes', require("./routes/quizRoutes"));
 
+app.get('/upload', (req, res) => {
+  res.sendFile(__dirname + '/upload-page/index.html');
+});
+
+
 
 // Active rooms endpoint
 app.get('/api/active-rooms', (req, res) => {
