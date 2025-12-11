@@ -4,7 +4,7 @@
 #
 
 app = 'cs-eslamhatem'
-primary_region = 'CDG'
+primary_region = 'cdg'
 
 [build]
 
