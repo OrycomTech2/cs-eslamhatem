@@ -1,5 +1,7 @@
+// r2Service.js - CORRECTED VERSION
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { Upload } = require("@aws-sdk/lib-storage");
 
 // Cloudflare R2 configuration
 const S3 = new S3Client({
@@ -13,9 +15,11 @@ const S3 = new S3Client({
 
 const BUCKET_NAME = process.env.CLOUDFLARE_BUCKET_NAME || "cs-islamhatem";
 
-// Upload file to R2
+// Original upload function (single PUT)
 exports.uploadToR2 = async (fileBuffer, fileName, contentType) => {
   try {
+    console.log(`Starting R2 upload for: ${fileName} (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+    
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: fileName,
@@ -25,10 +29,49 @@ exports.uploadToR2 = async (fileBuffer, fileName, contentType) => {
 
     await S3.send(command);
     
-    // Return the public URL (adjust based on your R2 public domain)
+    // Return the public URL
     return `https://pub-${process.env.CLOUDFLARE_PUBLIC_ENDPOINT}.r2.dev/${fileName}`;
   } catch (error) {
     console.error("R2 Upload Error:", error);
+    throw new Error(`Failed to upload to R2: ${error.message}`);
+  }
+};
+
+// Multipart upload for large files
+exports.uploadToR2Multipart = async (fileBuffer, fileName, contentType, onProgress) => {
+  try {
+    console.log(`Starting multipart R2 upload for: ${fileName} (${(fileBuffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+    
+    const parallelUploads3 = new Upload({
+      client: S3, // Use the same S3Client instance
+      params: {
+        Bucket: BUCKET_NAME,
+        Key: fileName,
+        Body: fileBuffer,
+        ContentType: contentType,
+      },
+      queueSize: 4, // Number of concurrent uploads
+      partSize: 5 * 1024 * 1024, // 5MB chunks
+      leavePartsOnError: false,
+    });
+
+    // Track progress
+    if (onProgress) {
+      parallelUploads3.on("httpUploadProgress", (progress) => {
+        if (progress.total) {
+          const percent = Math.round((progress.loaded / progress.total) * 100);
+          console.log(`Upload progress: ${percent}%`);
+          onProgress(percent);
+        }
+      });
+    }
+
+    const result = await parallelUploads3.done();
+    console.log(`Multipart upload completed for: ${fileName}`);
+    
+    return `https://pub-${process.env.CLOUDFLARE_PUBLIC_ENDPOINT}.r2.dev/${fileName}`;
+  } catch (error) {
+    console.error("R2 Multipart Upload Error:", error);
     throw new Error(`Failed to upload to R2: ${error.message}`);
   }
 };
@@ -63,7 +106,7 @@ exports.getPublicUrl = (fileName) => {
   // If it's already a full URL, return as-is
   if (fileName.startsWith('http')) return fileName;
   
-  return `https://pub-291401bda2d0492a874e98b69b6cc9a7.r2.dev/${fileName}`;
+  return `https://pub-${process.env.CLOUDFLARE_PUBLIC_ENDPOINT}.r2.dev/${fileName}`;
 };
 
 // Delete file from R2
@@ -89,11 +132,16 @@ exports.deleteFromR2 = async (fileName) => {
   }
 };
 
-// Upload multiple files
-exports.uploadMultipleToR2 = async (files) => {
-  const uploadPromises = files.map(file => {
-    return uploadToR2(file.buffer, file.filename, file.mimetype);
-  });
+// Choose upload method based on file size
+exports.uploadToR2Smart = async (fileBuffer, fileName, contentType, onProgress) => {
+  const fileSizeMB = fileBuffer.length / (1024 * 1024);
   
-  return Promise.all(uploadPromises);
+  // Use multipart for files larger than 100MB
+  if (fileSizeMB > 100) {
+    console.log(`Large file detected (${fileSizeMB.toFixed(2)} MB), using multipart upload`);
+    return await exports.uploadToR2Multipart(fileBuffer, fileName, contentType, onProgress);
+  } else {
+    console.log(`Small file detected (${fileSizeMB.toFixed(2)} MB), using standard upload`);
+    return await exports.uploadToR2(fileBuffer, fileName, contentType);
+  }
 };
