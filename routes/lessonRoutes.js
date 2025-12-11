@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer = require("multer");
 const path = require("path");
+const Lesson = require("../models/Lesson");
 
 // Controller
 const lessonController = require("../controllers/lessonController");
@@ -50,6 +51,20 @@ router.put(
 
 // Delete Lesson (Admin only)
 router.delete("/:id", authenticateAdmin, lessonController.deleteLesson);
+
+
+
+router.post("/save-video", async (req, res) => {
+  const { lessonId, videoUrl } = req.body;
+
+  await Lesson.findByIdAndUpdate(lessonId, {
+    video: videoUrl
+  });
+
+  res.json({ success: true });
+});
+
+
 
 // List All Lessons
 router.get("/", lessonController.listLessons);
