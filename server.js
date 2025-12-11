@@ -14,7 +14,7 @@ const ChatRoom = require('./models/ChatRoom');
 const searchRoutes = require("./routes/searchRoutes");
 
 // Configuration
-const PORT =8080;
+const PORT = 8080;
 const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'https://www.cs-islamhatem.com';
 const MONGO_URI = process.env.MONGO_URI || '*';
 
@@ -39,8 +39,32 @@ const io = new Server(server, {
 });
 
 // Middleware
+// Update Helmet configuration in server.js
 app.use(helmet({
   crossOriginResourcePolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'", // Allow inline styles
+        "https://cdn.jsdelivr.net" // Allow Bootstrap CDN
+      ],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'", // Allow inline scripts
+        "'unsafe-eval'" // Allow eval (needed for some Bootstrap features)
+      ],
+      scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers
+      fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
+      imgSrc: ["'self'", "data:", "blob:"], // Allow data URLs and blob
+      connectSrc: ["'self'", "https://cdn.jsdelivr.net"], // Allow external connections
+      frameSrc: ["'self'"],
+      mediaSrc: ["'self'", "blob:"], // Allow blob URLs for video preview
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"]
+    }
+  }
 }));
 
 app.use(cors({
@@ -74,7 +98,7 @@ app.use(express.urlencoded({ limit: '10gb', extended: true }));
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
-
+  
 
 // Database Connection
 mongoose.connect(MONGO_URI, {
@@ -691,11 +715,172 @@ app.use('/api/live', require("./routes/liveRoutes"));
 app.use('/api/chat', require("./routes/chatRoutes"));
 app.use('/api/help', require("./routes/helpRoutes"));
 app.use('/api/quizzes', require("./routes/quizRoutes"));
+// server.js - Add these lines after middleware setup
 
-app.get('/upload', (req, res) => {
-  res.sendFile(__dirname + '/upload-page/index.html');
+// Serve static files for upload page
+app.use('/upload-page', express.static(path.join(__dirname, 'upload-page')));
+
+// Add upload routes
+const { uploadToR2, deleteFromR2, uploadToR2Smart } = require('./services/r2Service');
+const Video = require('./models/Video');
+const uploadMemory = require('./middleware/multerMemory');
+
+// Video upload endpoint
+// Update the upload endpoint
+// Update the upload endpoint in server.js
+// Video upload endpoint - CORRECTED VERSION
+app.post('/api/upload/video', uploadMemory.single('video'), async (req, res) => {
+  try {
+    const { title } = req.body;
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
+    }
+
+    // Validate file type
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return res.status(400).json({ error: 'Invalid video format' });
+    }
+
+    console.log(`Starting upload: ${file.originalname} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
+
+    // Generate unique filename
+    const timestamp = Date.now();
+    const originalName = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.-]/g, '');
+    const fileName = `videos/${timestamp}_${originalName}`;
+
+    console.log(`Starting R2 upload: ${fileName}`);
+
+    // Upload to R2 - Use the function you actually imported
+    const fileUrl = await uploadToR2(
+      file.buffer,
+      fileName,
+      file.mimetype
+    );
+
+    console.log(`R2 upload completed: ${fileUrl}`);
+
+    // Save to MongoDB
+    const video = new Video({
+      title: title.trim(),
+      url: fileUrl,
+      size: file.size,
+      contentType: file.mimetype,
+      uploadedBy: req.user?.id
+    });
+
+    await video.save();
+
+    console.log(`Video saved to MongoDB: ${video._id}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Video uploaded successfully',
+      data: {
+        id: video._id,
+        title: video.title,
+        url: video.url,
+        size: video.size,
+        uploadedAt: video.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to upload video',
+      details: error.message 
+    });
+  }
+});// Get all videos
+app.get('/api/videos', async (req, res) => {
+  try {
+    const videos = await Video.find()
+      .sort({ createdAt: -1 })
+      .select('title url size contentType createdAt')
+      .lean();
+
+    res.json({
+      success: true,
+      count: videos.length,
+      data: videos
+    });
+  } catch (error) {
+    console.error('Error fetching videos:', error);
+    res.status(500).json({ error: 'Failed to fetch videos' });
+  }
 });
 
+// Delete video
+app.delete('/api/videos/:id', async (req, res) => {
+  try {
+    const video = await Video.findById(req.params.id);
+    
+    if (!video) {
+      return res.status(404).json({ error: 'Video not found' });
+    }
+
+    // Extract filename from URL for deletion
+    const fileName = video.url.split('/').pop();
+    
+    // Delete from R2
+    await deleteFromR2(fileName);
+    
+    // Delete from MongoDB
+    await Video.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: 'Video deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({ error: 'Failed to delete video' });
+  }
+});
+
+// Get upload progress endpoint (for large file handling)
+app.get('/api/upload/progress/:uploadId', (req, res) => {
+  // You can implement progress tracking with Redis or in-memory store
+  const progress = uploadProgress[req.params.uploadId] || 0;
+  res.json({ progress });
+});
+
+// Serve upload page
+app.get('/admin/upload-videos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'upload-page', 'index.html'));
+});
+
+
+const uploadStatus = {};
+
+// Status endpoint for polling
+app.get('/api/upload/status/:uploadId', (req, res) => {
+  const status = uploadStatus[req.params.uploadId] || {
+    status: 'unknown',
+    progress: 0,
+    message: 'Upload not found'
+  };
+  
+  res.json(status);
+});
+
+// Clean up old status entries periodically
+setInterval(() => {
+  const oneHourAgo = Date.now() - (60 * 60 * 1000);
+  for (const [uploadId, status] of Object.entries(uploadStatus)) {
+    if (status.timestamp && status.timestamp < oneHourAgo) {
+      delete uploadStatus[uploadId];
+    }
+  }
+}, 30 * 60 * 1000); // Every 30 minutes
 
 // Active rooms endpoint
 app.get('/api/active-rooms', (req, res) => {
@@ -767,12 +952,12 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-server.listen(PORT,'0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`
-    🚀 Server running on ://0.0.0.0:${PORT}
-    📡 Socket.IO: ws://0.0.0.0:${PORT}/socket.io/
-    🎮 PeerJS: ://0.0.0.0:${PORT}/peerjs
-    💬 Chat: ws://0.0.0.0:${PORT}
+    🚀 Server running on ://localhost:${PORT}
+    📡 Socket.IO: ws://localhost:${PORT}/socket.io/
+    🎮 PeerJS: ://localhost:${PORT}/peerjs
+    💬 Chat: ws://localhost:${PORT}
     🌐 CORS Origin: ${FRONTEND_ORIGIN}
     🏫 Active rooms: ${Object.keys(activeRooms).length}
   `);
@@ -788,3 +973,6 @@ process.on('SIGTERM', () => {
     });
   });
 });
+
+
+
