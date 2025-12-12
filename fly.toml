@@ -22,6 +22,10 @@ primary_region = 'cdg'
   cpus = 8
   memory_mb = 16384
 
+  [[mounts]]
+source = "app_data"
+destination = "/data"
+
 
 [http]
   [http.response]
