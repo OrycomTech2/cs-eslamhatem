@@ -150,11 +150,5 @@ exports.uploadToR2Smart = async (fileBuffer, fileName, contentType, onProgress) 
 module.exports = {
   S3,
   BUCKET_NAME,
-  uploadToR2,
-  uploadToR2Multipart,
-  uploadToR2Smart,
-  deleteFromR2,
-  getFileUrl,
-  getPublicUrl,
 };
 
