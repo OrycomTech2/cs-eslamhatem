@@ -1,39 +1,35 @@
-# syntax = docker/dockerfile:1
+# ---- Base image ----
+FROM node:20.18.0-slim
 
-# Adjust NODE_VERSION as desired
-ARG NODE_VERSION=20.18.0
-FROM node:${NODE_VERSION}-slim AS base
+# ---- System deps (needed for bcrypt, sharp, etc.) ----
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y \
+      build-essential \
+      node-gyp \
+      pkg-config \
+      python-is-python3 && \
+    rm -rf /var/lib/apt/lists/*
 
-LABEL fly_launch_runtime="Node.js"
-
-# Node.js app lives here
+# ---- App directory ----
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV="production"
+# ---- Copy package files first (better cache) ----
+COPY package.json package-lock.json ./
 
+# ---- Install dependencies (FIX HERE) ----
+# npm ci FAILS because lock file is out of sync
+# npm install safely resolves AWS SDK version drift
+RUN npm install --omit=dev --no-audit --no-fund
 
-# Throw-away build stage to reduce size of final image
-FROM base AS build
-
-# Install packages needed to build node modules
-RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential node-gyp pkg-config python-is-python3
-
-# Install node modules
-COPY package-lock.json package.json ./
-RUN npm ci
-
-# Copy application code
+# ---- Copy rest of app ----
 COPY . .
 
+# ---- Environment ----
+ENV NODE_ENV=production
+ENV PORT=8080
 
-# Final stage for app image
-FROM base
+# ---- Expose port ----
+EXPOSE 8080
 
-# Copy built application
-COPY --from=build /app /app
-
-# Start the server by default, this can be overwritten at runtime
-EXPOSE 3000
-CMD [ "npm", "run", "start" ]
+# ---- Start app ----
+CMD ["npm", "run", "start"]
