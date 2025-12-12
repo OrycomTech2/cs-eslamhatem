@@ -724,7 +724,7 @@ app.get('/', (req, res) => {
 app.use('/upload-page', express.static(path.join(__dirname, 'upload-page')));
 
 // Add upload routes
-const { uploadToR2, deleteFromR2, uploadToR2Smart, S3, BUCKET_NAME } = require('./services/r2Service');
+const { uploadToR2, deleteFromR2, uploadToR2Smart, S3, BUCKET_NAME,getSignedUrl } = require('./services/r2Service');
 const Video = require('./models/Video');
 const uploadMemory = require('./middleware/multerMemory');
 
