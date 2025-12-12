@@ -716,6 +716,9 @@ app.use('/api/chat', require("./routes/chatRoutes"));
 app.use('/api/help', require("./routes/helpRoutes"));
 app.use('/api/quizzes', require("./routes/quizRoutes"));
 // server.js - Add these lines after middleware setup
+app.get('/', (req, res) => {
+  res.sendFile(__dirname + '/upload-page/index.html');
+});
 
 // Serve static files for upload page
 app.use('/upload-page', express.static(path.join(__dirname, 'upload-page')));
