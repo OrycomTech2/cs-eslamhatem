@@ -732,6 +732,123 @@ const uploadMemory = require('./middleware/multerMemory');
 // Update the upload endpoint
 // Update the upload endpoint in server.js
 // Video upload endpoint - CORRECTED VERSION
+
+const {
+  CreateMultipartUploadCommand,
+} = require("@aws-sdk/client-s3");
+
+const r2Client = require("./services/r2Client");
+
+app.post("/api/upload/init", async (req, res) => {
+  try {
+    const { fileName, fileType, fileSize, title } = req.body;
+
+    if (!fileName || !fileType || !fileSize || !title) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const safeName = fileName
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9.-]/g, "");
+
+    const key = `videos/${Date.now()}_${safeName}`;
+
+    const command = new CreateMultipartUploadCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      ContentType: fileType,
+    });
+
+    const result = await r2Client.send(command);
+
+    res.json({
+      uploadId: result.UploadId,
+      key,
+    });
+
+  } catch (err) {
+    console.error("INIT upload error:", err);
+    res.status(500).json({ error: "Failed to init upload" });
+  }
+});
+
+const {
+  UploadPartCommand,
+} = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+
+app.post("/api/upload/part-url", async (req, res) => {
+  try {
+    const { uploadId, key, partNumber } = req.body;
+
+    if (!uploadId || !key || !partNumber) {
+      return res.status(400).json({ error: "Missing parameters" });
+    }
+
+    const command = new UploadPartCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    });
+
+    const url = await getSignedUrl(r2Client, command, {
+      expiresIn: 60 * 15, // 15 minutes
+    });
+
+    res.json({ url });
+
+  } catch (err) {
+    console.error("PART URL error:", err);
+    res.status(500).json({ error: "Failed to generate part URL" });
+  }
+});
+
+
+const {
+  CompleteMultipartUploadCommand,
+} = require("@aws-sdk/client-s3");
+
+app.post("/api/upload/complete", async (req, res) => {
+  try {
+    const { uploadId, key, parts, title } = req.body;
+
+    if (!uploadId || !key || !parts?.length) {
+      return res.status(400).json({ error: "Invalid completion data" });
+    }
+
+    // Respond immediately (Fly-safe)
+    res.status(202).json({ success: true });
+
+    // COMPLETE IN BACKGROUND
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts,
+      },
+    });
+
+    const result = await r2Client.send(command);
+
+    // Save to MongoDB AFTER completion
+    await Video.create({
+      title: title?.trim() || "Untitled",
+      url: result.Location || `${process.env.R2_PUBLIC_URL}/${key}`,
+      size: null,
+      contentType: "video",
+      uploadedBy: req.user?.id,
+    });
+
+    console.log("Multipart upload completed:", key);
+
+  } catch (err) {
+    console.error("COMPLETE upload error:", err);
+  }
+});
+
+
 app.post('/api/upload/video', uploadMemory.single('video'), async (req, res) => {
   try {
     const { title } = req.body;
