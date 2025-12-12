@@ -150,5 +150,6 @@ exports.uploadToR2Smart = async (fileBuffer, fileName, contentType, onProgress) 
 module.exports = {
   S3,
   BUCKET_NAME,
+  getSignedUrl
 };
 
