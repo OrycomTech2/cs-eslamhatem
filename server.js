@@ -732,19 +732,16 @@ const uploadMemory = require('./middleware/multerMemory');
 // Update the upload endpoint
 // Update the upload endpoint in server.js
 // Video upload endpoint - CORRECTED VERSION
-
 const {
   CreateMultipartUploadCommand,
 } = require("@aws-sdk/client-s3");
 
-const r2Client = require("./services/r2Client");
-
 app.post("/api/upload/init", async (req, res) => {
   try {
-    const { fileName, fileType, fileSize, title } = req.body;
+    const { fileName, fileType, title } = req.body;
 
-    if (!fileName || !fileType || !fileSize || !title) {
-      return res.status(400).json({ error: "Missing required fields" });
+    if (!fileName || !fileType || !title) {
+      return res.status(400).json({ error: "Missing fields" });
     }
 
     const safeName = fileName
@@ -754,12 +751,12 @@ app.post("/api/upload/init", async (req, res) => {
     const key = `videos/${Date.now()}_${safeName}`;
 
     const command = new CreateMultipartUploadCommand({
-      Bucket: process.env.R2_BUCKET,
+      Bucket: BUCKET_NAME,
       Key: key,
       ContentType: fileType,
     });
 
-    const result = await r2Client.send(command);
+    const result = await S3.send(command);
 
     res.json({
       uploadId: result.UploadId,
@@ -767,15 +764,14 @@ app.post("/api/upload/init", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("INIT upload error:", err);
-    res.status(500).json({ error: "Failed to init upload" });
+    console.error("INIT error:", err);
+    res.status(500).json({ error: "Failed to init multipart upload" });
   }
 });
 
 const {
   UploadPartCommand,
 } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 
 app.post("/api/upload/part-url", async (req, res) => {
   try {
@@ -786,14 +782,14 @@ app.post("/api/upload/part-url", async (req, res) => {
     }
 
     const command = new UploadPartCommand({
-      Bucket: process.env.R2_BUCKET,
+      Bucket: BUCKET_NAME,
       Key: key,
       UploadId: uploadId,
       PartNumber: partNumber,
     });
 
-    const url = await getSignedUrl(r2Client, command, {
-      expiresIn: 60 * 15, // 15 minutes
+    const url = await getSignedUrl(S3, command, {
+      expiresIn: 900, // 15 minutes
     });
 
     res.json({ url });
@@ -804,122 +800,47 @@ app.post("/api/upload/part-url", async (req, res) => {
   }
 });
 
-
 const {
   CompleteMultipartUploadCommand,
 } = require("@aws-sdk/client-s3");
 
 app.post("/api/upload/complete", async (req, res) => {
+  const { uploadId, key, parts, title } = req.body;
+
+  if (!uploadId || !key || !Array.isArray(parts)) {
+    return res.status(400).json({ error: "Invalid completion data" });
+  }
+
+  // 🚀 Respond immediately (Fly timeout safe)
+  res.status(202).json({ success: true });
+
   try {
-    const { uploadId, key, parts, title } = req.body;
-
-    if (!uploadId || !key || !parts?.length) {
-      return res.status(400).json({ error: "Invalid completion data" });
-    }
-
-    // Respond immediately (Fly-safe)
-    res.status(202).json({ success: true });
-
-    // COMPLETE IN BACKGROUND
     const command = new CompleteMultipartUploadCommand({
-      Bucket: process.env.R2_BUCKET,
+      Bucket: BUCKET_NAME,
       Key: key,
       UploadId: uploadId,
       MultipartUpload: {
-        Parts: parts,
+        Parts: parts, // [{ PartNumber, ETag }]
       },
     });
 
-    const result = await r2Client.send(command);
+    await S3.send(command);
 
-    // Save to MongoDB AFTER completion
     await Video.create({
-      title: title?.trim() || "Untitled",
-      url: result.Location || `${process.env.R2_PUBLIC_URL}/${key}`,
-      size: null,
-      contentType: "video",
+      title: title || "Untitled",
+      url: `https://pub-${process.env.CLOUDFLARE_PUBLIC_ENDPOINT}.r2.dev/${key}`,
       uploadedBy: req.user?.id,
     });
 
     console.log("Multipart upload completed:", key);
 
   } catch (err) {
-    console.error("COMPLETE upload error:", err);
+    console.error("COMPLETE error:", err);
   }
 });
 
 
-app.post('/api/upload/video', uploadMemory.single('video'), async (req, res) => {
-  try {
-    const { title } = req.body;
-    const file = req.file;
 
-    if (!file) {
-      return res.status(400).json({ error: 'No file uploaded' });
-    }
-
-    if (!title) {
-      return res.status(400).json({ error: 'Title is required' });
-    }
-
-    // Validate file type
-    const allowedTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      return res.status(400).json({ error: 'Invalid video format' });
-    }
-
-    console.log(`Starting upload: ${file.originalname} (${(file.size / (1024 * 1024)).toFixed(2)} MB)`);
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const originalName = file.originalname.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9.-]/g, '');
-    const fileName = `videos/${timestamp}_${originalName}`;
-
-    console.log(`Starting R2 upload: ${fileName}`);
-
-    // Upload to R2 - Use the function you actually imported
-    const fileUrl = await uploadToR2(
-      file.buffer,
-      fileName,
-      file.mimetype
-    );
-
-    console.log(`R2 upload completed: ${fileUrl}`);
-
-    // Save to MongoDB
-    const video = new Video({
-      title: title.trim(),
-      url: fileUrl,
-      size: file.size,
-      contentType: file.mimetype,
-      uploadedBy: req.user?.id
-    });
-
-    await video.save();
-
-    console.log(`Video saved to MongoDB: ${video._id}`);
-
-    res.status(200).json({
-      success: true,
-      message: 'Video uploaded successfully',
-      data: {
-        id: video._id,
-        title: video.title,
-        url: video.url,
-        size: video.size,
-        uploadedAt: video.createdAt
-      }
-    });
-
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to upload video',
-      details: error.message 
-    });
-  }
-});// Get all videos
 app.get('/api/videos', async (req, res) => {
   try {
     const videos = await Video.find()
