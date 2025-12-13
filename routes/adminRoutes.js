@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const path = require("path");
+const multer = require("multer");
 const Submission = require("../models/Submission");
 const SubscriptionCode = require("../models/SubscriptionCode");
 const authenticateAdmin = require("../middleware/authenticateAdmin");
