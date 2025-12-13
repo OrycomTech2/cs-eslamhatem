@@ -81,11 +81,12 @@ app.use(helmet({
   }
 }));
 
+// Update CORS configuration in server.js
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com','https://*.r2.cloudflarestorage.com'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-amz-*']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-amz-*', '*']
 }));
 
 app.use((req, res, next) => {
