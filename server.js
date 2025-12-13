@@ -41,8 +41,10 @@ const io = new Server(server, {
 // Middleware
 // Update Helmet configuration in server.js
 // In server.js - Update Helmet configuration
+// In server.js, update Helmet configuration:
 app.use(helmet({
   crossOriginResourcePolicy: false,
+  crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -50,8 +52,7 @@ app.use(helmet({
         "'self'",
         "'unsafe-inline'",
         "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com",  // Add this
-        "https://fonts.googleapis.com"   // Add this
+        "https://cdnjs.cloudflare.com"
       ],
       scriptSrc: [
         "'self'",
@@ -63,18 +64,27 @@ app.use(helmet({
       fontSrc: [
         "'self'", 
         "https://cdn.jsdelivr.net",
-        "https://fonts.gstatic.com"      // Add this for Google Fonts
+        "https://cdnjs.cloudflare.com",
+        "https://fonts.gstatic.com",
+        "https://fonts.googleapis.com"
       ],
-      imgSrc: ["'self'", "data:", "blob:", "https:"],
+      imgSrc: [
+        "'self'", 
+        "data:", 
+        "blob:", 
+        "https:",
+        "https://pub-*.r2.dev"
+      ],
       connectSrc: [
         "'self'", 
         "https://cdn.jsdelivr.net",
-        "https://*.r2.cloudflarestorage.com",  // Fix: Wildcard only at start
-        "https://pub-*.r2.dev",
-        "wss://*.r2.cloudflarestorage.com"
+        "https://*.r2.cloudflarestorage.com",
+        "https://pub-*.r2.dev",  // Allow public R2 endpoints
+        "wss://*.r2.cloudflarestorage.com",
+        `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`
       ],
       frameSrc: ["'self'"],
-      mediaSrc: ["'self'", "blob:", "https:"],
+      mediaSrc: ["'self'", "blob:", "https:", "https://pub-*.r2.dev"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"]
     }
