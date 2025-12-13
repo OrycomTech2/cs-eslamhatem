@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+  const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const Admin= require("../models/Admin");
@@ -1009,38 +1009,50 @@ exports.uploadLessonFiles = async (req, res) => {
 
     const updatedFields = {};
     
-    // Handle material upload (PDF/Docs)
+    // Handle material upload (PDF/Docs) - to local uploads folder
     if (files.material) {
-      const fileName = `lessons/materials/${Date.now()}-${files.material[0].originalname}`;
-      updatedFields.material = await uploadToR2(
-        files.material[0].buffer,
-        fileName,
-        files.material[0].mimetype
-      );
+      const materialFile = files.material[0];
+      const materialFileName = `${Date.now()}-${materialFile.originalname}`;
+      const materialPath = `uploads/materials/${materialFileName}`;
+      
+      // Write file to local filesystem
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Ensure directory exists
+      const dir = path.dirname(materialPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(materialPath, materialFile.buffer);
+      updatedFields.material = `/uploads/materials/${materialFileName}`;
     }
     
-    // Handle video - either from Firebase URL or file upload
+    // Handle video - from Firebase URL
     if (videoUrl) {
       // Use Firebase URL directly
       updatedFields.video = videoUrl;
-    } else if (files.video) {
-      // Fallback to file upload
-      const fileName = `lessons/videos/${Date.now()}-${files.video[0].originalname}`;
-      updatedFields.video = await uploadToR2(
-        files.video[0].buffer,
-        fileName,
-        files.video[0].mimetype
-      );
     }
     
-    // Handle thumbnail upload
+    // Handle thumbnail upload - to local uploads folder
     if (files.thumbnail) {
-      const fileName = `lessons/thumbnails/${Date.now()}-${files.thumbnail[0].originalname}`;
-      updatedFields.thumbnail = await uploadToR2(
-        files.thumbnail[0].buffer,
-        fileName,
-        files.thumbnail[0].mimetype
-      );
+      const thumbnailFile = files.thumbnail[0];
+      const thumbnailFileName = `${Date.now()}-${thumbnailFile.originalname}`;
+      const thumbnailPath = `uploads/thumbnails/${thumbnailFileName}`;
+      
+      // Write file to local filesystem
+      const fs = require('fs');
+      const path = require('path');
+      
+      // Ensure directory exists
+      const dir = path.dirname(thumbnailPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      fs.writeFileSync(thumbnailPath, thumbnailFile.buffer);
+      updatedFields.thumbnail = `/uploads/thumbnails/${thumbnailFileName}`;
     }
 
     // Update lesson in DB
@@ -1056,7 +1068,6 @@ exports.uploadLessonFiles = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
-
 // GET /api/admin/lessons?course=courseId
 exports.getLessons = async (req, res) => {
   try {
