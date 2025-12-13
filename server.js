@@ -68,10 +68,10 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com'],
+  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com','https://*.r2.cloudflarestorage.com'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-amz-*']
 }));
 
 app.use((req, res, next) => {
