@@ -1231,96 +1231,82 @@
         }
 
         // Upload form submission
-       uploadForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
+        uploadForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const title = videoTitleInput.value.trim();
+            const file = videoFileInput.files[0];
+            const uploadId = Date.now() + '_' + file.name.replace(/\s+/g, '_');
+            
+            if (!title || !file) {
+                showStatus('❌ Please fill all required fields', 'error');
+                return;
+            }
 
-  const file = videoFileInput.files[0];
-  const title = videoTitleInput.value.trim();
+            // Animate form submission
+            uploadForm.style.transform = 'scale(0.99)';
+            setTimeout(() => {
+                uploadForm.style.transform = '';
+            }, 300);
 
-  if (!file || !title) {
-    showStatus('❌ Missing title or file', 'error');
-    return;
-  }
+            startUpload();
+            showStatus('🚀 Starting upload process...', 'info');
+            updateProgress(0);
 
-  startUpload();
-  updateProgress(0, 'Initializing upload…');
+            // Create upload tracking object
+            window.currentUpload = {
+                id: uploadId,
+                title: title,
+                fileName: file.name,
+                fileSize: file.size,
+                startTime: Date.now(),
+                chunks: [],
+                chunkSize: 5 * 1024 * 1024 // 5MB chunks
+            };
 
-  const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB (safe)
-  const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+            // Prepare form data
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('video', file);
 
-  try {
-    /* 1️⃣ INIT multipart upload */
-    const initRes = await fetch('/api/upload/init', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fileName: file.name,
-        fileType: file.type,
-        fileSize: file.size,
-        title
-      })
-    });
+            try {
+                // Simulate chunked upload for better UX
+                simulateChunkedUpload(uploadId, file.size);
+                
+                const response = await fetch('/api/upload/video', {
+                    method: 'POST',
+                    body: formData
+                });
 
-    if (!initRes.ok) throw new Error('Init failed');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-    const { uploadId, key } = await initRes.json();
-
-    const uploadedParts = [];
-
-    /* 2️⃣ UPLOAD PARTS directly to R2 */
-    for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-      const start = (partNumber - 1) * CHUNK_SIZE;
-      const end = Math.min(start + CHUNK_SIZE, file.size);
-      const blob = file.slice(start, end);
-
-      const urlRes = await fetch('/api/upload/part-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uploadId, key, partNumber })
-      });
-
-      const { url } = await urlRes.json();
-
-      const putRes = await fetch(url, {
-        method: 'PUT',
-        body: blob
-      });
-
-      if (!putRes.ok) throw new Error(`Part ${partNumber} failed`);
-
-      const etag = putRes.headers.get('ETag');
-      uploadedParts.push({ PartNumber: partNumber, ETag: etag });
-
-      const percent = Math.round((end / file.size) * 100);
-      updateProgress(percent, `Uploading (${percent}%)`);
-    }
-
-    /* 3️⃣ COMPLETE upload (FAST request) */
-    await fetch('/api/upload/complete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        uploadId,
-        key,
-        parts: uploadedParts
-      })
-    });
-
-    completeUpload();
-    showStatus('✅ Upload completed successfully', 'success');
-
-    setTimeout(() => {
-      resetForm();
-      loadVideos();
-    }, 1500);
-
-  } catch (err) {
-    console.error(err);
-    showStatus(`❌ Upload failed: ${err.message}`, 'error');
-    endUpload();
-  }
-});
-
+                const result = await response.json();
+                
+                if (result.status === 'processing') {
+                    updateProgress(75, 'Finalizing upload...');
+                    
+                    // Enhanced polling with progress
+                    pollUploadStatus(uploadId, result.processId || uploadId);
+                    
+                } else if (result.success) {
+                    completeUpload();
+                    showStatus(`✅ ${result.message}`, 'success');
+                    setTimeout(() => {
+                        resetForm();
+                        loadVideos();
+                    }, 1500);
+                } else {
+                    throw new Error(result.error || 'Upload failed');
+                }
+                
+            } catch (error) {
+                console.error('Upload error:', error);
+                showStatus(`❌ Upload failed: ${error.message}`, 'error');
+                endUpload();
+            }
+        });
 
         // Enhanced load videos function
         async function loadVideos() {
