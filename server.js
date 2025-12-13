@@ -47,20 +47,26 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: [
         "'self'",
-        "'unsafe-inline'", // Allow inline styles
-        "https://cdn.jsdelivr.net" // Allow Bootstrap CDN
+        "'unsafe-inline'",
+        "https://cdn.jsdelivr.net"
       ],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'", // Allow inline scripts
-        "'unsafe-eval'" // Allow eval (needed for some Bootstrap features)
+        "'unsafe-inline'",
+        "'unsafe-eval'"
       ],
-      scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers
+      scriptSrcAttr: ["'unsafe-inline'"],
       fontSrc: ["'self'", "https://cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:", "blob:"], // Allow data URLs and blob
-      connectSrc: ["'self'", "https://cdn.jsdelivr.net"], // Allow external connections
+      imgSrc: ["'self'", "data:", "blob:", "https:"], // Added https:
+      connectSrc: [
+        "'self'", 
+        "https://cdn.jsdelivr.net",
+        "https://cs-islamhatem.*.r2.cloudflarestorage.com", // Wildcard for your R2
+        "https://pub-*.r2.dev", // For public R2 endpoints
+        "wss://*.r2.cloudflarestorage.com" // For WebSocket connections if needed
+      ],
       frameSrc: ["'self'"],
-      mediaSrc: ["'self'", "blob:"], // Allow blob URLs for video preview
+      mediaSrc: ["'self'", "blob:", "https:"], // Added https:
       objectSrc: ["'none'"],
       baseUri: ["'self'"]
     }
