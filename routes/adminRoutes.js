@@ -178,13 +178,14 @@ router.delete("/lessons/:id", authenticateAdmin, deleteLesson);
 router.get("/lessons/:id", authenticateAdmin, getLessonById);
 
 // PUT upload lesson files
+// In adminRoutes.js, update the route:
 router.put(
   "/lessons/:id/files",
   authenticateAdmin,
   uploadMemory.fields([
     { name: "material", maxCount: 1 },
-    { name: "video", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 }
+    // Note: removed video from upload since we'll use Firebase URL
   ]),
   uploadLessonFiles
 );
