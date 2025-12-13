@@ -82,11 +82,27 @@ app.use(helmet({
 }));
 
 // Update CORS configuration in server.js
+// In server.js, update the CORS middleware:
 app.use(cors({
-  origin: [FRONTEND_ORIGIN, 'https://www.cs-islamhatem.com'],
+  origin: [
+    FRONTEND_ORIGIN, 
+    'https://www.cs-islamhatem.com',
+    'https://cs-islamhatem.fly.dev'
+  ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-amz-*', '*']
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'x-amz-*', 
+    'x-amz-meta-*',
+    'Content-Disposition'
+  ],
+  exposedHeaders: [
+    'ETag',
+    'x-amz-version-id',
+    'x-amz-mp-parts-count'
+  ]
 }));
 
 app.use((req, res, next) => {
