@@ -21,3 +21,7 @@ primary_region = 'fra'
   cpu_kind = 'shared'
   cpus = 8
   memory_mb = 8192
+
+[mounts]
+  source = "uploads_volume"
+  destination = "/app/uploads"
