@@ -1000,14 +1000,16 @@ exports.getLessonById = async (req, res) => {
   }
 };
 
-// Upload lesson files
+// In adminController.js, update uploadLessonFiles function:
 exports.uploadLessonFiles = async (req, res) => {
   try {
     const lessonId = req.params.id;
     const files = req.files;
+    const { videoUrl } = req.body; // New: accept video URL from Firebase
 
     const updatedFields = {};
     
+    // Handle material upload (PDF/Docs)
     if (files.material) {
       const fileName = `lessons/materials/${Date.now()}-${files.material[0].originalname}`;
       updatedFields.material = await uploadToR2(
@@ -1017,7 +1019,12 @@ exports.uploadLessonFiles = async (req, res) => {
       );
     }
     
-    if (files.video) {
+    // Handle video - either from Firebase URL or file upload
+    if (videoUrl) {
+      // Use Firebase URL directly
+      updatedFields.video = videoUrl;
+    } else if (files.video) {
+      // Fallback to file upload
       const fileName = `lessons/videos/${Date.now()}-${files.video[0].originalname}`;
       updatedFields.video = await uploadToR2(
         files.video[0].buffer,
@@ -1026,6 +1033,7 @@ exports.uploadLessonFiles = async (req, res) => {
       );
     }
     
+    // Handle thumbnail upload
     if (files.thumbnail) {
       const fileName = `lessons/thumbnails/${Date.now()}-${files.thumbnail[0].originalname}`;
       updatedFields.thumbnail = await uploadToR2(
@@ -1048,7 +1056,6 @@ exports.uploadLessonFiles = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
-
 
 // GET /api/admin/lessons?course=courseId
 exports.getLessons = async (req, res) => {
