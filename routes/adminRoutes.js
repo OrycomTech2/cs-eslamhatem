@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const uploadMemory = require("../middleware/multerMemory");
 const path = require("path");
 const Submission = require("../models/Submission");
 const SubscriptionCode = require("../models/SubscriptionCode");
@@ -55,6 +54,39 @@ const {
   generateSubscriptionCode
 } = require("../controllers/adminController");
 
+// Storage config
+// Storage config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  },
+});
+// Add this to your multer configuration in adminRoutes.js
+const fileFilter = (req, file, cb) => {
+  // Allow videos, images, and documents
+  if (
+    file.mimetype.startsWith('video/') ||
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf' ||
+    file.mimetype === 'application/msword' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error('File type not allowed'), false);
+  }
+};
+
+// Allow up to 10 GB files
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 * 1024 }, // 10 GB
+  fileFilter
+});
+
 const { deleteFromR2 } = require("../services/r2Service");
 
 router.get("/students", authenticateAdmin, listStudents);
@@ -72,19 +104,19 @@ router.put("/students/:id/compiler", authenticateAdmin, toggleCompilerAccess);
 /* 🔑 Auth */
 router.post("/login", adminLogin);
 router.get("/profile", authenticateAdmin, getProfile);
-router.put("/profile", authenticateAdmin, uploadMemory.single("photo"), updateProfile);
+router.put("/profile", authenticateAdmin, upload.single("photo"), updateProfile);
 router.put("/change-password", authenticateAdmin, changePassword);
 
 /* 📚 Courses */
-router.post("/courses", authenticateAdmin, uploadMemory.single("thumbnail"), createCourse);
+router.post("/courses", authenticateAdmin, upload.single("thumbnail"), createCourse);
 router.get("/courses", authenticateAdmin, listCourses);
-router.put("/courses/:id", authenticateAdmin, uploadMemory.single("thumbnail"), updateCourse);
+router.put("/courses/:id", authenticateAdmin, upload.single("thumbnail"), updateCourse);
 router.delete("/courses/:id", authenticateAdmin, deleteCourse);
 
 /* 📝 Assignments */
-router.post("/assignments", authenticateAdmin, uploadMemory.single("pdf"), createAssignment);
+router.post("/assignments", authenticateAdmin, upload.single("pdf"), createAssignment);
 router.get("/assignments", authenticateAdmin, listAssignments);
-router.put("/assignments/:id", authenticateAdmin, uploadMemory.single("pdf"), updateAssignment);
+router.put("/assignments/:id", authenticateAdmin, upload.single("pdf"), updateAssignment);
 router.delete("/assignments/:id", authenticateAdmin, deleteAssignment);
 router.get("/assignments/submissions", authenticateAdmin, listSubmissions);
 
@@ -154,7 +186,7 @@ router.get("/assistants/:id", authenticateAdmin, getAssistantProfile);
 router.post(
   "/lessons",
   authenticateAdmin,
-  uploadMemory.fields([
+  upload.fields([
     { name: "material", maxCount: 1 },
     { name: "video", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
@@ -166,7 +198,7 @@ router.get("/lessons", authenticateAdmin, listLessons);
 router.put(
   "/lessons/:id",
   authenticateAdmin,
-  uploadMemory.fields([
+  upload.fields([
     { name: "material", maxCount: 1 },
     { name: "video", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 },
@@ -182,7 +214,7 @@ router.get("/lessons/:id", authenticateAdmin, getLessonById);
 router.put(
   "/lessons/:id/files",
   authenticateAdmin,
-  uploadMemory.fields([
+  upload.fields([
     { name: "material", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 }
     // Note: removed video from upload since we'll use Firebase URL
@@ -191,10 +223,10 @@ router.put(
 );
 
 /* ❓ Quizzes */
-router.post("/quizzes", authenticateAdmin, uploadMemory.single("pdfFile"), createQuiz);
+router.post("/quizzes", authenticateAdmin, upload.single("pdfFile"), createQuiz);
 router.get("/quizzes", authenticateAdmin, listQuizzes);
 router.delete("/quizzes/:id", authenticateAdmin, deleteQuiz);
-router.put("/quizzes/:id", authenticateAdmin, uploadMemory.single("pdfFile"), updateQuiz);
+router.put("/quizzes/:id", authenticateAdmin, upload.single("pdfFile"), updateQuiz);
 router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
 router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
 
