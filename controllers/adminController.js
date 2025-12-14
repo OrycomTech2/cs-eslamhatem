@@ -1005,29 +1005,27 @@ exports.uploadLessonFiles = async (req, res) => {
   try {
     const lessonId = req.params.id;
     const files = req.files;
-    const { videoUrl } = req.body; // New: accept video URL from Firebase
+    const { videoUrl } = req.body;
 
     const updatedFields = {};
     
-    // Handle material upload (PDF/Docs) - using disk storage
+    // Handle material upload (PDF/Docs)
     if (files && files.material) {
       const materialFile = files.material[0];
-      // Since we're using diskStorage, the file is already saved
-      // The path is stored in materialFile.path
-      updatedFields.material = `/uploads/${materialFile.filename}`;
+      // The file is saved to uploads/materials/ folder
+      updatedFields.material = `/uploads/materials/${materialFile.filename}`;
     }
     
     // Handle video - from Firebase URL
     if (videoUrl) {
-      // Use Firebase URL directly
       updatedFields.video = videoUrl;
     }
     
-    // Handle thumbnail upload - using disk storage
+    // Handle thumbnail upload
     if (files && files.thumbnail) {
       const thumbnailFile = files.thumbnail[0];
-      // Since we're using diskStorage, the file is already saved
-      updatedFields.thumbnail = `/uploads/${thumbnailFile.filename}`;
+      // The file is saved to uploads/thumbnails/ folder
+      updatedFields.thumbnail = `/uploads/thumbnails/${thumbnailFile.filename}`;
     }
 
     // Update lesson in DB
@@ -1043,6 +1041,7 @@ exports.uploadLessonFiles = async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 };
+
 // GET /api/admin/lessons?course=courseId
 exports.getLessons = async (req, res) => {
   try {
