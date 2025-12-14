@@ -136,6 +136,9 @@ app.use(limiter);
 app.use(express.json({ limit: '10gb' }));
 app.use(express.urlencoded({ limit: '10gb', extended: true }));
 
+// ⭐ ADD THIS LINE - Serve static files from uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -735,6 +738,7 @@ socket.emit("room-created", responseData); // Make sure this line exists
     }
   });
 });
+
 
 app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
