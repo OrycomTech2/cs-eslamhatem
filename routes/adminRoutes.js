@@ -84,7 +84,16 @@ const storage = multer.diskStorage({
     cb(null, folder);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
+    // Clean filename: remove spaces and special characters
+    const originalName = file.originalname;
+    const cleanName = originalName
+      .replace(/\s+/g, '_')  // Replace spaces with underscores
+      .replace(/[^\w.-]/g, '') // Remove non-alphanumeric characters except dots and dashes
+      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .toLowerCase();
+    
+    const timestamp = Date.now();
+    cb(null, `${timestamp}_${cleanName}`);
   },
 });
 
