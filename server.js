@@ -37,6 +37,22 @@ const io = new Server(server, {
   pingTimeout: 60000,
   pingInterval: 25000
 });
+// In server.js, after imports but before starting server:
+const fs = require('fs');
+const uploadDirs = [
+  'uploads/materials',
+  'uploads/thumbnails', 
+  'uploads/videos',
+  'uploads/quizzes',
+  'uploads/assignments'
+];
+
+uploadDirs.forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+    console.log(`✅ Created directory: ${dir}`);
+  }
+});
 
 // Middleware
 // Update Helmet configuration in server.js
@@ -140,6 +156,12 @@ app.use(express.urlencoded({ limit: '10gb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
+// Or serve specific folders with different paths:
+app.use('/uploads/materials', express.static(path.join(__dirname, 'uploads', 'materials')));
+app.use('/uploads/thumbnails', express.static(path.join(__dirname, 'uploads', 'thumbnails')));
+app.use('/uploads/videos', express.static(path.join(__dirname, 'uploads', 'videos')));
+app.use('/uploads/quizzes', express.static(path.join(__dirname, 'uploads', 'quizzes')));
+app.use('/uploads/assignments', express.static(path.join(__dirname, 'uploads', 'assignments')));
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
   
