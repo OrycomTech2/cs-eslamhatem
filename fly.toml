@@ -22,3 +22,6 @@ primary_region = 'fra'
   cpus = 8
   memory_mb = 8192
 
+[mounts]
+  source = "app_data"
+  destination = "/data/uploads"
