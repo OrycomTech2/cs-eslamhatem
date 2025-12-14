@@ -57,29 +57,36 @@ const {
 
 // Storage config
 // Storage config
+// Update storage config to organize files better
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    // Organize files by type
+    let folder = 'uploads/';
+    
+    if (file.fieldname === 'material') {
+      folder = 'uploads/materials/';
+    } else if (file.fieldname === 'thumbnail') {
+      folder = 'uploads/thumbnails/';
+    } else if (file.fieldname === 'video') {
+      folder = 'uploads/videos/';
+    } else if (file.fieldname === 'pdfFile') {
+      folder = 'uploads/quizzes/';
+    } else if (file.fieldname === 'pdf') {
+      folder = 'uploads/assignments/';
+    }
+    
+    // Create folder if it doesn't exist
+    const fs = require('fs');
+    if (!fs.existsSync(folder)) {
+      fs.mkdirSync(folder, { recursive: true });
+    }
+    
+    cb(null, folder);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    cb(null, Date.now() + '-' + file.originalname);
   },
 });
-// Add this to your multer configuration in adminRoutes.js
-const fileFilter = (req, file, cb) => {
-  // Allow videos, images, and documents
-  if (
-    file.mimetype.startsWith('video/') ||
-    file.mimetype.startsWith('image/') ||
-    file.mimetype === 'application/pdf' ||
-    file.mimetype === 'application/msword' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-  ) {
-    cb(null, true);
-  } else {
-    cb(new Error('File type not allowed'), false);
-  }
-};
 
 // Allow up to 10 GB files
 const upload = multer({
