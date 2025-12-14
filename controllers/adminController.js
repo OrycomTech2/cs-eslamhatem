@@ -1009,24 +1009,12 @@ exports.uploadLessonFiles = async (req, res) => {
 
     const updatedFields = {};
     
-    // Handle material upload (PDF/Docs) - to local uploads folder
-    if (files.material) {
+    // Handle material upload (PDF/Docs) - using disk storage
+    if (files && files.material) {
       const materialFile = files.material[0];
-      const materialFileName = `${Date.now()}-${materialFile.originalname}`;
-      const materialPath = `uploads/materials/${materialFileName}`;
-      
-      // Write file to local filesystem
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Ensure directory exists
-      const dir = path.dirname(materialPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      fs.writeFileSync(materialPath, materialFile.buffer);
-      updatedFields.material = `/uploads/materials/${materialFileName}`;
+      // Since we're using diskStorage, the file is already saved
+      // The path is stored in materialFile.path
+      updatedFields.material = `/uploads/${materialFile.filename}`;
     }
     
     // Handle video - from Firebase URL
@@ -1035,24 +1023,11 @@ exports.uploadLessonFiles = async (req, res) => {
       updatedFields.video = videoUrl;
     }
     
-    // Handle thumbnail upload - to local uploads folder
-    if (files.thumbnail) {
+    // Handle thumbnail upload - using disk storage
+    if (files && files.thumbnail) {
       const thumbnailFile = files.thumbnail[0];
-      const thumbnailFileName = `${Date.now()}-${thumbnailFile.originalname}`;
-      const thumbnailPath = `uploads/thumbnails/${thumbnailFileName}`;
-      
-      // Write file to local filesystem
-      const fs = require('fs');
-      const path = require('path');
-      
-      // Ensure directory exists
-      const dir = path.dirname(thumbnailPath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      
-      fs.writeFileSync(thumbnailPath, thumbnailFile.buffer);
-      updatedFields.thumbnail = `/uploads/thumbnails/${thumbnailFileName}`;
+      // Since we're using diskStorage, the file is already saved
+      updatedFields.thumbnail = `/uploads/${thumbnailFile.filename}`;
     }
 
     // Update lesson in DB
