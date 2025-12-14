@@ -88,6 +88,21 @@ const storage = multer.diskStorage({
   },
 });
 
+const fileFilter = (req, file, cb) => {
+  // Allow videos, images, and documents
+  if (
+    file.mimetype.startsWith('video/') ||
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf' ||
+    file.mimetype === 'application/msword' ||
+    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    cb(null, true);
+  } else {
+    cb(new Error('File type not allowed'), false);
+  }
+};
+
 // Allow up to 10 GB files
 const upload = multer({
   storage,
