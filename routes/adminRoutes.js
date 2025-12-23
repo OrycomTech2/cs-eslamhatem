@@ -52,7 +52,8 @@ const {
   gradeQuizAttempt,
   getQuizSubmissionById,
   getAvailableLiveSessions,
-  generateSubscriptionCode
+  generateSubscriptionCode,
+  deleteQuizSubmission
 } = require("../controllers/adminController");
 
 // Storage config
@@ -261,6 +262,7 @@ router.delete("/quizzes/:id", authenticateAdmin, deleteQuiz);
 router.put("/quizzes/:id", authenticateAdmin, upload.single("pdfFile"), updateQuiz);
 router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
 router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
+router.delete("/delete/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
 
 router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmission);
 router.put("/quizzes/attempts/:id/grade", authenticateAdmin, gradeQuizAttempt);
