@@ -1221,6 +1221,35 @@ exports.reviewSubmission = async (req, res) => {
   }
 };
 
+// ❌ Delete Quiz Submission
+exports.deleteQuizSubmission = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const submission = await QuizAttempt.findById(id);
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        error: "Submission not found",
+      });
+    }
+
+    await submission.deleteOne();
+
+    res.json({
+      success: true,
+      message: "Submission deleted successfully",
+    });
+  } catch (err) {
+    console.error("Delete quiz submission error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to delete submission",
+    });
+  }
+};
+
+
 
 // ✅ List All Quizzes
 exports.listQuizzes = async (req, res) => {
