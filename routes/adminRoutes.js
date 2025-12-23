@@ -263,7 +263,6 @@ router.put("/quizzes/:id", authenticateAdmin, upload.single("pdfFile"), updateQu
 router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
 router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
 router.delete("/delete/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
-
 router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmission);
 router.put("/quizzes/attempts/:id/grade", authenticateAdmin, gradeQuizAttempt);
 router.get("/quizzes/:id/pdf", authenticateAdmin, getQuizPDF);
