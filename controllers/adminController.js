@@ -1421,25 +1421,50 @@ exports.getCourseStudents = async (req, res) => {
 exports.getStudentCourseAssignments = async (req, res) => {
   try {
     const { courseId, studentId } = req.params;
-    
-    // Get all assignments for this course
+
+    // 1. Get all assignments in the course
     const assignments = await Assignment.find({ course: courseId });
-    const assignmentIds = assignments.map(a => a._id);
-    
-    // Get submissions for these assignments by this student
+
+    // 2. Get all submissions by this student for these assignments
     const submissions = await Submission.find({
       student: studentId,
-      assignment: { $in: assignmentIds }
+      assignment: { $in: assignments.map(a => a._id) }
     })
-    .populate('assignment', 'title description dueDate')
-    .populate('student', 'name email');
-    
-    res.json({ success: true, data: submissions });
+      .populate('assignment', 'title description dueDate')
+      .populate('student', 'name email');
+
+    // 3. Map submissions by assignment ID for fast lookup
+    const submissionMap = {};
+    submissions.forEach(sub => {
+      submissionMap[sub.assignment._id.toString()] = sub;
+    });
+
+    // 4. Combine assignments + submissions
+    const result = assignments.map(assignment => {
+      const submission = submissionMap[assignment._id.toString()];
+
+      return {
+        assignment: {
+          _id: assignment._id,
+          title: assignment.title,
+          description: assignment.description,
+          dueDate: assignment.dueDate,
+        },
+        submission: submission || null   // null if not submitted
+      };
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+
   } catch (err) {
     console.error("Get student course assignments error:", err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 };
+
 
 // Get quiz submissions for a student in a specific course
 exports.getStudentCourseQuizzes = async (req, res) => {
