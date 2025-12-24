@@ -53,7 +53,13 @@ const {
   getQuizSubmissionById,
   getAvailableLiveSessions,
   generateSubscriptionCode,
-  deleteQuizSubmission
+  deleteQuizSubmission,
+  getCourseStudents,
+  getStudentCourseAssignments,
+  getStudentCourseQuizzes,
+  deleteAssignmentSubmission,
+  getSubmissionById,
+  reviewSubmissionquiz
 } = require("../controllers/adminController");
 
 // Storage config
@@ -263,11 +269,26 @@ router.put("/quizzes/:id", authenticateAdmin, upload.single("pdfFile"), updateQu
 router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
 router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
 router.delete("/delete/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
-router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmission);
+router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmissionquiz);
 router.put("/quizzes/attempts/:id/grade", authenticateAdmin, gradeQuizAttempt);
 router.get("/quizzes/:id/pdf", authenticateAdmin, getQuizPDF);
 
 /* 🔑 Subscription Codes */
 router.post("/subscription-codes", authenticateAdmin, generateSubscriptionCode);
+
+
+
+// Add these to your admin routes (routes/admin.js)
+router.get("/courses/:courseId/students", authenticateAdmin, getCourseStudents);
+router.get("/courses/:courseId/students/:studentId/assignments", authenticateAdmin, getStudentCourseAssignments);
+router.get("/courses/:courseId/students/:studentId/quizzes", authenticateAdmin, getStudentCourseQuizzes);
+router.delete("/submissions/:id", authenticateAdmin, deleteAssignmentSubmission);
+router.delete("/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
+
+// Assignment submission routes
+router.get("/submissions", authenticateAdmin, listSubmissions); // GET all submissions
+router.get("/submissions/:id", authenticateAdmin, getSubmissionById); // GET single submission (you might need to add this)
+router.put("/submissions/:id/review", authenticateAdmin, reviewSubmission); // Review submission
+router.delete("/submissions/:id", authenticateAdmin, deleteAssignmentSubmission); // Delete submis
 
 module.exports = router;
