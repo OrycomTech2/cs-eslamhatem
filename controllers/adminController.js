@@ -1179,7 +1179,7 @@ exports.getQuizSubmissionById = async (req, res) => {
 
 
 // ✅ Manual Review Submission (per-question)
-exports.reviewSubmission = async (req, res) => {
+exports.reviewSubmissionquiz = async (req, res) => {
   try {
     const { id } = req.params;
     const { answers, score, feedback } = req.body; // answers for structured, score/feedback for PDF
@@ -1388,5 +1388,136 @@ exports.generateSubscriptionCode = async (req, res) => {
   } catch (err) {
     console.error("Error generating subscription code:", err);
     res.status(500).json({ message: "Server error." });
+  }
+};
+
+
+
+
+
+// Add these to your adminController.js
+
+// Get students in a specific course
+exports.getCourseStudents = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    
+    // Find all students who have this course in their paidCourses
+    const students = await User.find({ 
+      role: 'student', 
+      paidCourses: courseId 
+    })
+    .select('name email phoneNumber parentName parentPhone subscriptionCode hasCompilerAccess paidCourses')
+    .populate('paidCourses', 'title');
+    
+    res.json({ success: true, data: students });
+  } catch (err) {
+    console.error("Get course students error:", err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Get assignment submissions for a student in a specific course
+exports.getStudentCourseAssignments = async (req, res) => {
+  try {
+    const { courseId, studentId } = req.params;
+    
+    // Get all assignments for this course
+    const assignments = await Assignment.find({ course: courseId });
+    const assignmentIds = assignments.map(a => a._id);
+    
+    // Get submissions for these assignments by this student
+    const submissions = await Submission.find({
+      student: studentId,
+      assignment: { $in: assignmentIds }
+    })
+    .populate('assignment', 'title description dueDate')
+    .populate('student', 'name email');
+    
+    res.json({ success: true, data: submissions });
+  } catch (err) {
+    console.error("Get student course assignments error:", err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Get quiz submissions for a student in a specific course
+exports.getStudentCourseQuizzes = async (req, res) => {
+  try {
+    const { courseId, studentId } = req.params;
+    
+    // Get all quizzes for this course
+    const quizzes = await Quiz.find({ course: courseId });
+    const quizIds = quizzes.map(q => q._id);
+    
+    // Get quiz attempts for these quizzes by this student
+    const attempts = await QuizAttempt.find({
+      student: studentId,
+      quiz: { $in: quizIds }
+    })
+    .populate('quiz', 'title description examType')
+    .populate('student', 'name email')
+    .populate('answers.question', 'text correctAnswer marks');
+    
+    res.json({ success: true, data: attempts });
+  } catch (err) {
+    console.error("Get student course quizzes error:", err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Delete assignment submission
+exports.deleteAssignmentSubmission = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const submission = await Submission.findById(id);
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: 'Assignment submission not found'
+      });
+    }
+    
+    // Delete file if exists
+    if (submission.fileUrl) {
+      try {
+        await deleteFromR2(submission.fileUrl);
+      } catch (fileError) {
+        console.error('Error deleting file:', fileError);
+      }
+    }
+    
+    await Submission.findByIdAndDelete(id);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Assignment submission deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting assignment submission:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while deleting assignment submission'
+    });
+  }
+};
+
+
+// Add this to your adminController.js
+exports.getSubmissionById = async (req, res) => {
+  try {
+    const submission = await Submission.findById(req.params.id)
+      .populate("student", "name email")
+      .populate("assignment", "title");
+    
+    if (!submission) {
+      return res.status(404).json({ message: "Submission not found" });
+    }
+    
+    res.json({ submission });
+  } catch (err) {
+    console.error("Get submission error:", err);
+    res.status(500).json({ message: "Server error" });
   }
 };
