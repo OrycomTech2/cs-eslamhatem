@@ -83,7 +83,4 @@ router.get("/students/:id", authenticateAssistant, getStudentById);
 router.put("/students/:id", authenticateAssistant, updateStudent);
 router.delete("/students/:id", authenticateAssistant, deleteStudent);
 
-
-
-
 module.exports = router;
