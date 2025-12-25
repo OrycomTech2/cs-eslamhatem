@@ -39,7 +39,15 @@ const {
   getQuizPDF,
   gradeAssignment,
   getQuizSubmissionById,
-  gradeQuizAttempt
+  gradeQuizAttempt,
+    generateSubscriptionCode,
+  deleteQuizSubmission,
+  getCourseStudents,
+  getStudentCourseAssignments,
+  getStudentCourseQuizzes,
+  deleteAssignmentSubmission,
+  getSubmissionById,
+  reviewSubmissionquiz
 } = require("../controllers/adminController");
 
 
@@ -82,5 +90,17 @@ router.get("/students", authenticateAssistant, listStudents);
 router.get("/students/:id", authenticateAssistant, getStudentById);
 router.put("/students/:id", authenticateAssistant, updateStudent);
 router.delete("/students/:id", authenticateAssistant, deleteStudent);
+
+// Add these to your admin routes (routes/admin.js)
+router.get("/courses/:courseId/students", authenticateAssistant, getCourseStudents);
+router.get("/courses/:courseId/students/:studentId/assignments", authenticateAssistant, getStudentCourseAssignments);
+router.get("/courses/:courseId/students/:studentId/quizzes", authenticateAssistant, getStudentCourseQuizzes);
+router.delete("/submissions/:id", authenticateAssistant, deleteAssignmentSubmission);
+router.delete("/quiz-submissions/:id", authenticateAssistant, deleteQuizSubmission);
+// Assignment submission routes
+router.get("/submissions", authenticateAssistant, listSubmissions); // GET all submissions
+router.get("/submissions/:id", authenticateAssistant, getSubmissionById); // GET single submission (you might need to add this)
+router.put("/submissions/:id/review", authenticateAssistant, reviewSubmission); // Review submission
+router.delete("/submissions/:id", authenticateAssistant, deleteAssignmentSubmission); // Delete submis
 
 module.exports = router;
