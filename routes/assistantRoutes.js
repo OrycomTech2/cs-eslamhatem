@@ -40,7 +40,7 @@ const {
   gradeAssignment,
   getQuizSubmissionById,
   gradeQuizAttempt,
-    generateSubscriptionCode,
+  generateSubscriptionCode,
   deleteQuizSubmission,
   getCourseStudents,
   getStudentCourseAssignments,
@@ -91,6 +91,8 @@ router.get("/students/:id", authenticateAssistant, getStudentById);
 router.put("/students/:id", authenticateAssistant, updateStudent);
 router.delete("/students/:id", authenticateAssistant, deleteStudent);
 
+
+
 // Add these to your admin routes (routes/admin.js)
 router.get("/courses/:courseId/students", authenticateAssistant, getCourseStudents);
 router.get("/courses/:courseId/students/:studentId/assignments", authenticateAssistant, getStudentCourseAssignments);
@@ -102,5 +104,4 @@ router.get("/submissions", authenticateAssistant, listSubmissions); // GET all s
 router.get("/submissions/:id", authenticateAssistant, getSubmissionById); // GET single submission (you might need to add this)
 router.put("/submissions/:id/review", authenticateAssistant, reviewSubmission); // Review submission
 router.delete("/submissions/:id", authenticateAssistant, deleteAssignmentSubmission); // Delete submis
-
 module.exports = router;
