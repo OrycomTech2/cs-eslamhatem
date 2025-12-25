@@ -1086,16 +1086,13 @@ exports.createQuiz = async (req, res) => {
 
     if (examType === "pdf" && req.file) {
       quizData.pdfFile = req.file.path;
-      
-      // For PDF exams, use the totalMarks from the request
-      // Default to 100 if not provided
       quizData.totalMarks = totalMarks ? parseInt(totalMarks) : 100;
     }
 
     const quiz = new Quiz(quizData);
     await quiz.save();
 
-    // Structured exam → save questions
+    // Structured exam
     if (examType === "structured" && questions?.length > 0) {
       const createdQuestions = await Promise.all(
         questions.map((q) =>
@@ -1109,16 +1106,24 @@ exports.createQuiz = async (req, res) => {
           })
         )
       );
+
       quiz.questions = createdQuestions.map((q) => q._id);
-      
-      // Calculate total marks from questions
       quiz.totalMarks = createdQuestions.reduce((sum, q) => sum + q.marks, 0);
       await quiz.save();
     } else if (examType === "structured") {
-      // If structured exam but no questions, set totalMarks to 0
       quiz.totalMarks = 0;
       await quiz.save();
     }
+
+    // ✅ THIS WAS MISSING
+    res.status(201).json({ success: true, data: quiz });
+
+  } catch (err) {
+    console.error("Create quiz error:", err);
+    res.status(500).json({ error: "Failed to create quiz" });
+  }
+};
+
 
 
 
