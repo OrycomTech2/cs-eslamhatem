@@ -1064,10 +1064,9 @@ exports.getLessons = async (req, res) => {
 // Upload middleware
 exports.uploadPDF = upload.single("pdfFile");
 
-// ✅ Create Quiz
 exports.createQuiz = async (req, res) => {
   try {
-    let { title, description, courseId, questions, duration, examType } = req.body;
+    let { title, description, courseId, questions, duration, examType, totalMarks } = req.body;
 
     if (typeof questions === "string") {
       questions = JSON.parse(questions);
@@ -1087,6 +1086,10 @@ exports.createQuiz = async (req, res) => {
 
     if (examType === "pdf" && req.file) {
       quizData.pdfFile = req.file.path;
+      
+      // For PDF exams, use the totalMarks from the request
+      // Default to 100 if not provided
+      quizData.totalMarks = totalMarks ? parseInt(totalMarks) : 100;
     }
 
     const quiz = new Quiz(quizData);
@@ -1107,19 +1110,17 @@ exports.createQuiz = async (req, res) => {
         )
       );
       quiz.questions = createdQuestions.map((q) => q._id);
+      
+      // Calculate total marks from questions
       quiz.totalMarks = createdQuestions.reduce((sum, q) => sum + q.marks, 0);
+      await quiz.save();
+    } else if (examType === "structured") {
+      // If structured exam but no questions, set totalMarks to 0
+      quiz.totalMarks = 0;
       await quiz.save();
     }
 
-    // Attach quiz to course
-    await Course.findByIdAndUpdate(courseId, { $push: { Quiz: quiz._id } });
 
-    res.json({ success: true, data: quiz });
-  } catch (err) {
-    console.error("Create quiz error:", err);
-    res.status(500).json({ error: "Failed to create quiz" });
-  }
-};
 
 // ✅ Grade Attempt
 exports.gradeQuizAttempt = async (req, res) => {
@@ -1291,32 +1292,33 @@ exports.deleteQuiz = async (req, res) => {
 exports.updateQuiz = async (req, res) => {
   try {
     const { id } = req.params;
-    let { title, description, duration, questions, examType } = req.body;
+    let { title, description, duration, examType, questions, totalMarks } = req.body;
 
     if (typeof questions === "string") {
       questions = JSON.parse(questions);
     }
 
     const quiz = await Quiz.findById(id);
-    if (!quiz) return res.status(404).json({ error: "Quiz not found" });
+    if (!quiz) {
+      return res.status(404).json({ error: "Quiz not found" });
+    }
 
     quiz.title = title || quiz.title;
     quiz.description = description || quiz.description;
     quiz.duration = duration || quiz.duration;
     quiz.examType = examType || quiz.examType;
 
-    // Switch to PDF
+    // Handle PDF upload if new file is provided
     if (examType === "pdf" && req.file) {
       quiz.pdfFile = req.file.path;
-      await Question.deleteMany({ quiz: id });
-      quiz.questions = [];
-      quiz.totalMarks = 0;
     }
 
-    // Structured update
     if (examType === "structured" && questions?.length > 0) {
+      // Delete old questions
       await Question.deleteMany({ quiz: id });
-      const newQuestions = await Promise.all(
+      
+      // Create new questions
+      const createdQuestions = await Promise.all(
         questions.map((q) =>
           Question.create({
             quiz: id,
@@ -1328,8 +1330,15 @@ exports.updateQuiz = async (req, res) => {
           })
         )
       );
-      quiz.questions = newQuestions.map((q) => q._id);
-      quiz.totalMarks = newQuestions.reduce((sum, q) => sum + q.marks, 0);
+      
+      quiz.questions = createdQuestions.map((q) => q._id);
+      quiz.totalMarks = createdQuestions.reduce((sum, q) => sum + q.marks, 0);
+    } else if (examType === "structured") {
+      quiz.questions = [];
+      quiz.totalMarks = 0;
+    } else if (examType === "pdf") {
+      // For PDF exams, use the provided totalMarks or keep existing
+      quiz.totalMarks = totalMarks ? parseInt(totalMarks) : (quiz.totalMarks || 100);
     }
 
     await quiz.save();
@@ -1340,6 +1349,7 @@ exports.updateQuiz = async (req, res) => {
   }
 };
 
+    
 // ✅ Get Quiz PDF
 exports.getQuizPDF = async (req, res) => {
   try {
