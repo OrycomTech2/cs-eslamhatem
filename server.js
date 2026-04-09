@@ -14,7 +14,7 @@ const ChatRoom = require('./models/ChatRoom');
 const searchRoutes = require("./routes/searchRoutes");
 
 // Configuration
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'https://www.cs-islamhatem.com';
 const MONGO_URI = process.env.MONGO_URI || '*';
 
@@ -953,7 +953,7 @@ app.delete('/api/videos/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete video' });
   }
 });
-
+const uploadProgress = {};
 // Get upload progress endpoint (for large file handling)
 app.get('/api/upload/progress/:uploadId', (req, res) => {
   // You can implement progress tracking with Redis or in-memory store
