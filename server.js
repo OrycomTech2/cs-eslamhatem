@@ -14,7 +14,7 @@ const ChatRoom = require('./models/ChatRoom');
 const searchRoutes = require("./routes/searchRoutes");
 
 // Configuration
-const PORT = 3000;
+const PORT = 8080;
 const FRONTEND_ORIGIN = process.env.CORS_ORIGIN || 'https://www.cs-islamhatem.com';
 const MONGO_URI = process.env.MONGO_URI || '*';
 
@@ -1060,7 +1060,7 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '127.0.0.1', () => {
   console.log(`
     🚀 Server running on ://localhost:${PORT}
     📡 Socket.IO: ws://localhost:${PORT}/socket.io/
