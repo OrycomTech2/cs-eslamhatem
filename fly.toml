@@ -3,7 +3,7 @@
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'cs-eslamhatem-ptjbra'
+app = 'cs-eslamhatem-backend'
 primary_region = 'fra'
 
 [build]
@@ -22,6 +22,3 @@ primary_region = 'fra'
   cpus = 8
   memory_mb = 8192
 
-[mounts]
-  source = "app_data"
-  destination = "/data/uploads"
