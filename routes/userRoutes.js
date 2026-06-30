@@ -23,8 +23,10 @@ const {
   submitPdfQuiz,
   getQuiz,
   uploadQuizAnswer,
-  getUserQuizAttempt
+  getUserQuizAttempt,
+  startQuiz
 } = require("../controllers/studentController");
+
 const { getUserLiveSessions } = require("../controllers/liveSessionController");
 // ================= Multer setup =================
 const storage = multer.diskStorage({
@@ -64,20 +66,55 @@ router.get("/my-assignments", authenticate, getMyAssignments);
 router.post("/submit-assignment", authenticate, upload.single("file"), submitAssignment);
 
 /* ❓ Quizzes */
-router.post("/quizzes/:quizId/submit", authenticate, submitQuiz);
-router.post("/quizzes/submit-pdf", authenticate, upload.single("answerFile"), submitPdfQuiz);
 router.get("/quizzes/my", authenticate, getMyQuizzes);
+
+// Start must be before opening/submitting
+router.post("/quizzes/:quizId/start", authenticate, startQuiz);
+
+// Attempt check route
+router.get("/quizzes/:quizId/attempt", authenticate, getUserQuizAttempt);
+
+// Keep old frontend compatibility if some pages use /:quizId/attempt
+router.get("/:quizId/attempt", authenticate, getUserQuizAttempt);
+
 router.get("/quizzes/:id", authenticate, getQuiz);
+
+router.post("/quizzes/:quizId/submit", authenticate, submitQuiz);
+
+router.post("/quizzes/submit-pdf", authenticate, upload.single("answerFile"), submitPdfQuiz);
+
 router.post(
   "/quizzes/:quizId/upload",
   authenticate,
   upload.single("answer"),
   uploadQuizAnswer
 );
+
+
+/* ❓ Quizzes */
+router.get("/quizzes/my", authenticate, getMyQuizzes);
+
+// Start must be before opening/submitting
+router.post("/quizzes/:quizId/start", authenticate, startQuiz);
+
+// Attempt check route
+router.get("/quizzes/:quizId/attempt", authenticate, getUserQuizAttempt);
+
+// Keep old frontend compatibility if some pages use /:quizId/attempt
 router.get("/:quizId/attempt", authenticate, getUserQuizAttempt);
-/* 🎥 Live Sessions */
-router.get("/sessions", authenticate, getLiveSessions);
-router.get("/my-live-sessions", authenticate, getUserLiveSessions);
+
+router.get("/quizzes/:id", authenticate, getQuiz);
+
+router.post("/quizzes/:quizId/submit", authenticate, submitQuiz);
+
+router.post("/quizzes/submit-pdf", authenticate, upload.single("answerFile"), submitPdfQuiz);
+
+router.post(
+  "/quizzes/:quizId/upload",
+  authenticate,
+  upload.single("answer"),
+  uploadQuizAnswer
+);
 
 
 /* 💻 Compiler */
