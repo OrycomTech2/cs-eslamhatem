@@ -1,24 +1,67 @@
-// models/QuizAttempt.js
+// models/AssignmentSubmission.js
 const mongoose = require("mongoose");
 
-const quizAttemptSchema = new mongoose.Schema({
-  quiz: { type: mongoose.Schema.Types.ObjectId, ref: "Quiz", required: true },
-  student: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-  answers: [
-    {
-      question: { type: mongoose.Schema.Types.ObjectId, ref: "Question" },
-      answer: String, // student’s answer
-      isCorrect: Boolean,
-      marksObtained: { type: Number, default: 0 }
-    }
-  ],
-  pdfAnswerFile: { type: String },
-  score: { type: Number, default: 0 },
-  feedback: { type: String },
-reviewedAt: { type: Date },
-  status: { type: String, enum: ['pending', 'reviewed'], default: 'pending' },
-  attemptedAt: { type: Date, default: Date.now },
-  pendingUntil: { type: Date },
-}, { timestamps: true });
+const assignmentSubmissionSchema = new mongoose.Schema({
+  assignmentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Content.assignments", // links to assignment inside a lesson
+    required: true
+  },
+  lessonId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Content",
+    required: true
+  },
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Course",
+    required: true
+  },
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+  fileUrl: {
+    type: String, // saved file path or S3/Cloudinary link
+    required: true
+  },
+submittedAt: {
+  type: Date,
+  default: Date.now
+},
 
-module.exports = mongoose.model("QuizAttempt", quizAttemptSchema);
+isLate: {
+  type: Boolean,
+  default: false
+},
+
+deadlineAt: {
+  type: Date,
+  default: null
+},
+
+lateByMs: {
+  type: Number,
+  default: 0
+},
+
+lateByText: {
+  type: String,
+  default: null
+},
+  status: {
+    type: String,
+    enum: ["submitted", "graded"],
+    default: "submitted"
+  },
+  grade: {
+    type: Number, // optional if you want instructors to grade
+    default: null
+  },
+  feedback: {
+    type: String
+  }
+});
+
+module.exports = mongoose.model("AssignmentSubmission", assignmentSubmissionSchema);
