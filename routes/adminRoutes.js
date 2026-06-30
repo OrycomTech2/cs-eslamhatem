@@ -2,11 +2,16 @@ const express = require("express");
 const router = express.Router();
 const path = require("path");
 const multer = require("multer");
-const Submission = require("../models/Submission");
+
+const AssignmentSubmission = require("../models/Submission");
 const SubscriptionCode = require("../models/SubscriptionCode");
 const authenticateAdmin = require("../middleware/authenticateAdmin");
+
 const {
-  createLesson, listLessons, updateLesson, deleteLesson,
+  createLesson,
+  listLessons,
+  updateLesson,
+  deleteLesson,
   adminLogin,
   getProfile,
   updateProfile,
@@ -32,7 +37,7 @@ const {
   deleteAssistant,
   listAssistants,
   getAssistantProfile,
-  getLessonById, 
+  getLessonById,
   uploadLessonFiles,
   createQuiz,
   listQuizzes,
@@ -62,209 +67,253 @@ const {
   reviewSubmissionquiz
 } = require("../controllers/adminController");
 
-// Storage config
-// Storage config
-// Update storage config to organize files better
+const { deleteFromR2 } = require("../services/r2Service");
+
+/* ========================
+   📂 Multer Storage Config
+======================== */
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Organize files by type
-    let folder = 'uploads/';
-    
-    if (file.fieldname === 'material') {
-      folder = 'uploads/materials/';
-    } else if (file.fieldname === 'thumbnail') {
-      folder = 'uploads/thumbnails/';
-    } else if (file.fieldname === 'video') {
-      folder = 'uploads/videos/';
-    } else if (file.fieldname === 'pdfFile') {
-      folder = 'uploads/quizzes/';
-    } else if (file.fieldname === 'pdf') {
-      folder = 'uploads/assignments/';
+    let folder = "uploads/";
+
+    if (file.fieldname === "material") {
+      folder = "uploads/materials/";
+    } else if (file.fieldname === "thumbnail") {
+      folder = "uploads/thumbnails/";
+    } else if (file.fieldname === "video") {
+      folder = "uploads/videos/";
+    } else if (file.fieldname === "pdfFile") {
+      folder = "uploads/quizzes/";
+    } else if (file.fieldname === "pdf") {
+      folder = "uploads/assignments/";
+    } else if (file.fieldname === "reviewPdf") {
+      folder = "uploads/reviews/";
+    } else if (file.fieldname === "photo") {
+      folder = "uploads/admins/";
     }
-    
-    // Create folder if it doesn't exist
-    const fs = require('fs');
+
+    const fs = require("fs");
+
     if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder, { recursive: true });
     }
-    
+
     cb(null, folder);
   },
+
   filename: (req, file, cb) => {
-    // Clean filename: remove spaces and special characters
-    const originalName = file.originalname;
+    const originalName = file.originalname || "file";
+
     const cleanName = originalName
-      .replace(/\s+/g, '_')  // Replace spaces with underscores
-      .replace(/[^\w.-]/g, '') // Remove non-alphanumeric characters except dots and dashes
-      .replace(/_{2,}/g, '_') // Replace multiple underscores with single
+      .replace(/\s+/g, "_")
+      .replace(/[^\w.-]/g, "")
+      .replace(/_{2,}/g, "_")
       .toLowerCase();
-    
+
     const timestamp = Date.now();
     cb(null, `${timestamp}_${cleanName}`);
-  },
+  }
 });
+
 const fileFilter = (req, file, cb) => {
-  // Allow videos, images, and documents
   if (
-    file.mimetype.startsWith('video/') ||
-    file.mimetype.startsWith('image/') ||
-    file.mimetype === 'application/pdf' ||
-    file.mimetype === 'application/msword' ||
-    file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    file.mimetype.startsWith("video/") ||
+    file.mimetype.startsWith("image/") ||
+    file.mimetype === "application/pdf" ||
+    file.mimetype === "application/msword" ||
+    file.mimetype ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
     cb(null, true);
   } else {
-    cb(new Error('File type not allowed'), false);
+    cb(new Error("File type not allowed"), false);
   }
 };
 
-// Allow up to 10 GB files
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 * 1024 }, // 10 GB
+  limits: {
+    fileSize: 10 * 1024 * 1024 * 1024
+  },
   fileFilter
 });
 
-const { deleteFromR2 } = require("../services/r2Service");
+/* ========================
+   👩‍🎓 Students
+======================== */
 
 router.get("/students", authenticateAdmin, listStudents);
 router.get("/students/:id", authenticateAdmin, getStudentById);
 router.put("/students/:id", authenticateAdmin, updateStudent);
 router.delete("/students/:id", authenticateAdmin, deleteStudent);
 
-// Course assignment
 router.post("/students/:id/courses", authenticateAdmin, assignCourseToStudent);
 router.delete("/students/:id/courses", authenticateAdmin, removeCourseFromStudent);
 
-// Compiler access
 router.put("/students/:id/compiler", authenticateAdmin, toggleCompilerAccess);
 
-/* 🔑 Auth */
+/* ========================
+   🔑 Auth
+======================== */
+
 router.post("/login", adminLogin);
 router.get("/profile", authenticateAdmin, getProfile);
 router.put("/profile", authenticateAdmin, upload.single("photo"), updateProfile);
 router.put("/change-password", authenticateAdmin, changePassword);
 
-/* 📚 Courses */
+/* ========================
+   📚 Courses
+======================== */
+
 router.post("/courses", authenticateAdmin, upload.single("thumbnail"), createCourse);
 router.get("/courses", authenticateAdmin, listCourses);
 router.put("/courses/:id", authenticateAdmin, upload.single("thumbnail"), updateCourse);
 router.delete("/courses/:id", authenticateAdmin, deleteCourse);
 
-/* 📝 Assignments */
+/* ========================
+   📝 Assignments
+======================== */
+
+router.use("/assignments", (req, res, next) => {
+  console.log("🚦 Assignment route reached:", req.method, req.originalUrl);
+  next();
+});
+
 router.post("/assignments", authenticateAdmin, upload.single("pdf"), createAssignment);
 router.get("/assignments", authenticateAdmin, listAssignments);
 router.put("/assignments/:id", authenticateAdmin, upload.single("pdf"), updateAssignment);
 router.delete("/assignments/:id", authenticateAdmin, deleteAssignment);
+
 router.get("/assignments/submissions", authenticateAdmin, listSubmissions);
 
-// Updated delete submission route for R2
 router.delete("/assignments/submissions/:id", authenticateAdmin, async (req, res) => {
   try {
     const submissionId = req.params.id;
-    
-    // Find the submission first
-    const submission = await Submission.findById(submissionId);
-    
+
+    const submission = await AssignmentSubmission.findById(submissionId);
+
     if (!submission) {
       return res.status(404).json({
         success: false,
-        message: 'Submission not found'
+        message: "Submission not found"
       });
     }
-    
-    // Delete file from R2 if it exists
+
     if (submission.fileUrl) {
       try {
         await deleteFromR2(submission.fileUrl);
       } catch (fileError) {
-        console.error('Error deleting file from R2:', fileError);
-        // Continue even if file deletion fails
+        console.error("Error deleting file from R2:", fileError);
       }
     }
-    
-    // Delete the submission from database
-    await Submission.findByIdAndDelete(submissionId);
-    
-    res.status(200).json({
+
+    await AssignmentSubmission.findByIdAndDelete(submissionId);
+
+    return res.status(200).json({
       success: true,
-      message: 'Submission deleted successfully'
+      message: "Submission deleted successfully"
     });
-    
   } catch (error) {
-    console.error('Error deleting submission:', error);
-    res.status(500).json({
+    console.error("Error deleting assignment submission:", error);
+
+    return res.status(500).json({
       success: false,
-      message: 'Server error while deleting submission',
+      message: "Server error while deleting submission",
       error: error.message
     });
   }
 });
 
-router.put("/assignments/submissions/:id/review", authenticateAdmin, reviewSubmission);
-router.put("/assignments/submissions/:id/grade", authenticateAdmin, gradeAssignment);
+/* ✅ Review assignment submission with optional correction PDF */
+router.put(
+  "/assignments/submissions/:id/review",
+  authenticateAdmin,
+  upload.single("reviewPdf"),
+  reviewSubmission
+);
 
-/* 🎥 Live Sessions */
+/* ✅ Grade assignment submission with optional correction PDF */
+router.put(
+  "/assignments/submissions/:id/grade",
+  authenticateAdmin,
+  upload.single("reviewPdf"),
+  gradeAssignment
+);
+
+/* ========================
+   🎥 Live Sessions
+======================== */
+
 router.post("/livesessions", authenticateAdmin, scheduleLiveSession);
 router.get("/livesessions", authenticateAdmin, listSessions);
 router.put("/livesessions/:id", authenticateAdmin, updateLiveSession);
 router.delete("/livesessions/:id", authenticateAdmin, cancelLiveSession);
 router.get("/available-live-sessions", authenticateAdmin, getAvailableLiveSessions);
 
-/* 👥 Users & Assistants */
+/* ========================
+   👥 Users & Assistants
+======================== */
+
 router.get("/users", authenticateAdmin, getAllUsers);
 router.delete("/users/:id", authenticateAdmin, deleteUser);
+
 router.post("/assistants", authenticateAdmin, createAssistant);
 router.get("/assistants", authenticateAdmin, listAssistants);
 router.put("/assistants/:id", authenticateAdmin, updateAssistant);
 router.delete("/assistants/:id", authenticateAdmin, deleteAssistant);
 router.get("/assistants/:id", authenticateAdmin, getAssistantProfile);
 
-/* 📚 Lessons */
+/* ========================
+   📚 Lessons
+======================== */
+
 router.post(
   "/lessons",
   authenticateAdmin,
   upload.fields([
     { name: "material", maxCount: 1 },
     { name: "video", maxCount: 1 },
-    { name: "thumbnail", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 }
   ]),
   createLesson
 );
 
 router.get("/lessons", authenticateAdmin, listLessons);
+
 router.put(
   "/lessons/:id",
   authenticateAdmin,
   upload.fields([
     { name: "material", maxCount: 1 },
     { name: "video", maxCount: 1 },
-    { name: "thumbnail", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 }
   ]),
   updateLesson
 );
-router.delete("/lessons/:id", authenticateAdmin, deleteLesson);
 
+router.delete("/lessons/:id", authenticateAdmin, deleteLesson);
 router.get("/lessons/:id", authenticateAdmin, getLessonById);
 
-// PUT upload lesson files
-// In adminRoutes.js, update the route:
 router.put(
   "/lessons/:id/files",
   authenticateAdmin,
   upload.fields([
     { name: "material", maxCount: 1 },
     { name: "thumbnail", maxCount: 1 }
-    // Note: removed video from upload since we'll use Firebase URL
   ]),
   uploadLessonFiles
 );
 
-/* ❓ Quizzes */
+/* ========================
+   ❓ Quizzes
+======================== */
+
 router.post("/quizzes", authenticateAdmin, upload.single("pdfFile"), createQuiz);
 router.get("/quizzes", authenticateAdmin, listQuizzes);
 router.delete("/quizzes/:id", authenticateAdmin, deleteQuiz);
 router.put("/quizzes/:id", authenticateAdmin, upload.single("pdfFile"), updateQuiz);
+
 router.get("/quiz-submissions", authenticateAdmin, listQuizSubmissions);
 router.get("/quiz-submissions/:id", authenticateAdmin, getQuizSubmissionById);
 router.delete("/delete/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
@@ -272,22 +321,45 @@ router.put("/quiz-submissions/:id/review", authenticateAdmin, reviewSubmissionqu
 router.put("/quizzes/attempts/:id/grade", authenticateAdmin, gradeQuizAttempt);
 router.get("/quizzes/:id/pdf", authenticateAdmin, getQuizPDF);
 
-/* 🔑 Subscription Codes */
+/* ========================
+   🔑 Subscription Codes
+======================== */
+
 router.post("/subscription-codes", authenticateAdmin, generateSubscriptionCode);
 
+/* ========================
+   📌 Course Student Details
+======================== */
 
-
-// Add these to your admin routes (routes/admin.js)
 router.get("/courses/:courseId/students", authenticateAdmin, getCourseStudents);
-router.get("/courses/:courseId/students/:studentId/assignments", authenticateAdmin, getStudentCourseAssignments);
-router.get("/courses/:courseId/students/:studentId/quizzes", authenticateAdmin, getStudentCourseQuizzes);
+
+router.get(
+  "/courses/:courseId/students/:studentId/assignments",
+  authenticateAdmin,
+  getStudentCourseAssignments
+);
+
+router.get(
+  "/courses/:courseId/students/:studentId/quizzes",
+  authenticateAdmin,
+  getStudentCourseQuizzes
+);
+
+/* ========================
+   📤 General Assignment Submission Routes
+======================== */
+
+router.get("/submissions", authenticateAdmin, listSubmissions);
+router.get("/submissions/:id", authenticateAdmin, getSubmissionById);
+
+router.put(
+  "/submissions/:id/review",
+  authenticateAdmin,
+  upload.single("reviewPdf"),
+  reviewSubmission
+);
+
 router.delete("/submissions/:id", authenticateAdmin, deleteAssignmentSubmission);
 router.delete("/quiz-submissions/:id", authenticateAdmin, deleteQuizSubmission);
-
-// Assignment submission routes
-router.get("/submissions", authenticateAdmin, listSubmissions); // GET all submissions
-router.get("/submissions/:id", authenticateAdmin, getSubmissionById); // GET single submission (you might need to add this)
-router.put("/submissions/:id/review", authenticateAdmin, reviewSubmission); // Review submission
-router.delete("/submissions/:id", authenticateAdmin, deleteAssignmentSubmission); // Delete submis
 
 module.exports = router;
