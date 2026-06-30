@@ -4,19 +4,34 @@ const mongoose = require("mongoose");
 const assignmentSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String },
-  dueDate: { type: Date },
-    grade: { type: Number },
+
+  // ✅ This stores full deadline: date + time
+  // Example: 2026-07-01T20:30:00.000Z
+  dueDate: { type: Date, required: true },
+
+  grade: { type: Number },
   feedback: { type: String },
+
   reviewedBy: { 
     type: mongoose.Schema.Types.ObjectId,
-    refPath: "reviewerModel"   // 👈 dynamic ref
+    refPath: "reviewerModel"
   },
-  reviewerModel: {             // 👈 tells mongoose which collection to use
+
+  reviewerModel: {
     type: String,
     enum: ["Admin", "Assistant"]
-  },  reviewedAt: { type: Date }, // ✅ review date
-  course: { type: mongoose.Schema.Types.ObjectId, ref: "Course", required: true },
-    pdf: { type: String }, // ✅ store filename/path of uploaded PDF
+  },
+
+  reviewedAt: { type: Date },
+
+  course: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Course",
+    required: true
+  },
+
+  pdf: { type: String },
+
   submissions: [{ type: mongoose.Schema.Types.ObjectId, ref: "Submission" }],
 }, { timestamps: true });
 
