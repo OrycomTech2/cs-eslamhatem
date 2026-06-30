@@ -223,49 +223,128 @@ exports.listCourses = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
-
 /* ========================
    📝 Assignments
 ======================== */
+
 exports.createAssignment = async (req, res) => {
+  console.log("🔥 createAssignment controller reached");
+
   try {
+    console.log("📥 req.body:", req.body);
+    console.log("📂 req.file:", req.file);
+    console.log("👤 req.user:", req.user);
+
     const { title, description, courseId, dueDate } = req.body;
 
-    // 1️⃣ Create new assignment
+    console.log("🧪 Extracted fields:", {
+      title,
+      description,
+      courseId,
+      dueDate,
+    });
+
+    if (!title) {
+      console.log("❌ Missing title");
+      return res.status(400).json({ message: "Title is required" });
+    }
+
+    if (!courseId) {
+      console.log("❌ Missing courseId");
+      return res.status(400).json({ message: "Course is required" });
+    }
+
+    if (!dueDate) {
+      console.log("❌ Missing dueDate");
+      return res.status(400).json({ message: "Due date/time is required" });
+    }
+
+    const parsedDueDate = new Date(dueDate);
+
+    console.log("🕒 Parsed dueDate:", parsedDueDate);
+    console.log("🕒 Is valid date:", !Number.isNaN(parsedDueDate.getTime()));
+
+    if (Number.isNaN(parsedDueDate.getTime())) {
+      console.log("❌ Invalid dueDate format");
+      return res.status(400).json({ message: "Invalid due date/time" });
+    }
+
+    const course = await Course.findById(courseId);
+    console.log("📚 Found course:", course ? course.title : null);
+
+    if (!course) {
+      console.log("❌ Course not found with ID:", courseId);
+      return res.status(404).json({ message: "Course not found" });
+    }
+
     const assignment = new Assignment({
       title,
       description,
       course: courseId,
-      dueDate,
-      pdf: req.file ? req.file.filename : null
+      dueDate: parsedDueDate,
+      pdf: req.file ? req.file.filename : null,
     });
+
+    console.log("📝 Assignment before save:", assignment);
 
     await assignment.save();
 
-    // 2️⃣ Push the assignment into the course.assignments array
+    console.log("✅ Assignment saved:", assignment._id);
+
     await Course.findByIdAndUpdate(courseId, {
-      $push: { assignments: assignment._id }
+      $push: { assignments: assignment._id },
     });
 
-    res.json({ success: true, assignment });
+    console.log("✅ Assignment pushed to course");
+
+    return res.status(201).json({
+      success: true,
+      message: "Assignment created successfully",
+      assignment,
+    });
+
   } catch (err) {
-    console.error("Assignment create error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("🔥 Assignment create error full:", err);
+    console.error("🔥 Error message:", err.message);
+    console.error("🔥 Error stack:", err.stack);
+
+    return res.status(500).json({
+      success: false,
+      message: "Server error while creating assignment",
+      error: err.message,
+    });
   }
 };
-
 
 exports.updateAssignment = async (req, res) => {
   try {
     const { title, description, dueDate } = req.body;
 
-    const update = {
-      ...(title !== undefined && { title }),
-      ...(description !== undefined && { description }),
-      ...(dueDate !== undefined && { dueDate }),
-    };
+    const update = {};
 
-    // if a new pdf uploaded, replace
+    if (title !== undefined) update.title = title;
+    if (description !== undefined) update.description = description;
+
+    if (dueDate !== undefined) {
+      const parsedDueDate = new Date(dueDate);
+
+      if (Number.isNaN(parsedDueDate.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid due date/time"
+        });
+      }
+
+      if (parsedDueDate <= new Date()) {
+        return res.status(400).json({
+          success: false,
+          message: "Due date/time must be in the future"
+        });
+      }
+
+      update.dueDate = parsedDueDate;
+    }
+
     if (req.file) {
       update.pdf = req.file.filename;
     }
@@ -277,31 +356,73 @@ exports.updateAssignment = async (req, res) => {
     ).populate("course", "title");
 
     if (!assignment) {
-      return res.status(404).json({ message: "Assignment not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Assignment not found"
+      });
     }
 
-    res.json({ assignment });
+    res.json({
+      success: true,
+      message: "Assignment updated successfully",
+      assignment
+    });
   } catch (err) {
     console.error("Assignment update error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
   }
 };
+
 
 exports.deleteAssignment = async (req, res) => {
   try {
-    await Assignment.findByIdAndDelete(req.params.id);
-    res.json({ message: "Assignment deleted" });
+    const assignment = await Assignment.findByIdAndDelete(req.params.id);
+
+    if (!assignment) {
+      return res.status(404).json({
+        success: false,
+        message: "Assignment not found"
+      });
+    }
+
+    await Course.findByIdAndUpdate(assignment.course, {
+      $pull: { assignments: assignment._id }
+    });
+
+    res.json({
+      success: true,
+      message: "Assignment deleted"
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("Assignment delete error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 };
 
+
 exports.listAssignments = async (req, res) => {
   try {
-    const assignments = await Assignment.find().populate("course", "title");
-    res.json({ data: assignments });
+    const assignments = await Assignment.find()
+      .populate("course", "title")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      data: assignments
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error("List assignments error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
   }
 };
 
@@ -311,50 +432,234 @@ exports.listAssignments = async (req, res) => {
 // controllers/adminController.js
 exports.listSubmissions = async (req, res) => {
   try {
+    function formatDurationFromMs(ms) {
+      const totalMinutes = Math.max(0, Math.floor(Math.abs(ms) / 60000));
+
+      const days = Math.floor(totalMinutes / 1440);
+      const hours = Math.floor((totalMinutes % 1440) / 60);
+      const minutes = totalMinutes % 60;
+
+      const parts = [];
+
+      if (days > 0) parts.push(`${days} day${days === 1 ? "" : "s"}`);
+      if (hours > 0) parts.push(`${hours}h`);
+      if (minutes > 0) parts.push(`${minutes}min`);
+
+      if (parts.length === 0) return "less than 1min";
+      if (parts.length === 1) return parts[0];
+
+      return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+    }
+
+    function buildDeadlineStatus(submission) {
+      const submittedAt = submission.createdAt;
+      const deadlineAt = submission.assignment?.dueDate;
+
+      if (!submittedAt || !deadlineAt) {
+        return {
+          status: "no_deadline",
+          isLate: false,
+          label: "No deadline data",
+          adminText: "No deadline was found for this submission.",
+          submittedAt,
+          deadlineAt
+        };
+      }
+
+      const submittedDate = new Date(submittedAt);
+      const deadlineDate = new Date(deadlineAt);
+
+      if (
+        Number.isNaN(submittedDate.getTime()) ||
+        Number.isNaN(deadlineDate.getTime())
+      ) {
+        return {
+          status: "invalid_date",
+          isLate: false,
+          label: "Invalid deadline data",
+          adminText: "The submitted date or deadline date is invalid.",
+          submittedAt,
+          deadlineAt
+        };
+      }
+
+      const diffMs = submittedDate.getTime() - deadlineDate.getTime();
+      const diffText = formatDurationFromMs(diffMs);
+
+      if (diffMs > 0) {
+        return {
+          status: "late",
+          isLate: true,
+          label: `Overdue ${diffText} late`,
+          adminText: `This submission is overdue ${diffText} late.`,
+          submittedAt,
+          deadlineAt,
+          lateByMs: diffMs,
+          lateByText: diffText
+        };
+      }
+
+      if (diffMs < 0) {
+        return {
+          status: "early",
+          isLate: false,
+          label: `Before deadline by ${diffText}`,
+          adminText: `This submission was submitted before the deadline by ${diffText}.`,
+          submittedAt,
+          deadlineAt,
+          earlyByMs: Math.abs(diffMs),
+          earlyByText: diffText
+        };
+      }
+
+      return {
+        status: "on_time",
+        isLate: false,
+        label: "Submitted exactly on deadline",
+        adminText: "This submission was submitted exactly on the deadline.",
+        submittedAt,
+        deadlineAt
+      };
+    }
+
     const submissions = await Submission.find()
       .populate("student", "name email")
-      .populate("assignment", "title")
-      .select("fileUrl textAnswer grade feedback createdAt"); // ✅ include file & text
+      .populate("assignment", "title dueDate")
+      .select("fileUrl textAnswer grade feedback reviewPdfUrl reviewPdfOriginalName createdAt reviewedAt")
+      .sort({ createdAt: -1 });
 
-    res.json({ data: submissions });
+    const data = submissions.map((submission) => {
+      const obj = submission.toObject();
+
+      return {
+        ...obj,
+        submittedAt: obj.createdAt,
+        deadlineAt: obj.assignment?.dueDate || null,
+        deadlineStatus: buildDeadlineStatus(obj)
+      };
+    });
+
+    return res.json({
+      success: true,
+      data
+    });
   } catch (err) {
     console.error("List submissions error:", err);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error: err.message
+    });
   }
 };
-
 
 exports.reviewSubmission = async (req, res) => {
   try {
+    console.log("🔥 reviewSubmission reached");
+    console.log("📥 req.body:", req.body);
+    console.log("📂 req.file:", req.file);
+    console.log("🆔 submission id:", req.params.id);
+
     const { feedback, grade } = req.body;
+
     const submission = await Submission.findById(req.params.id);
-    if (!submission) return res.status(404).json({ message: "Not found" });
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: "Submission not found"
+      });
+    }
 
     if (feedback !== undefined) submission.feedback = feedback;
-    if (grade !== undefined) submission.grade = grade;
+
+    if (grade !== undefined && grade !== "") {
+      const parsedGrade = Number(grade);
+
+      if (Number.isNaN(parsedGrade)) {
+        return res.status(400).json({
+          success: false,
+          message: "Grade must be a number"
+        });
+      }
+
+      submission.grade = parsedGrade;
+    }
+
+    if (req.file) {
+      submission.reviewPdfUrl = `uploads/reviews/${req.file.filename}`;
+      submission.reviewPdfOriginalName = req.file.originalname;
+    }
+
     submission.reviewedAt = new Date();
 
     await submission.save();
-    res.json({ submission });
+
+    res.json({
+      success: true,
+      message: "Submission reviewed successfully",
+      submission
+    });
   } catch (err) {
-    console.error("Review error:", err);
-    res.status(500).json({ message: "Server error" });
+    console.error("Review submission error:", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while reviewing submission",
+      error: err.message
+    });
   }
-};
-exports.gradeAssignment = async (req, res) => {
+};exports.gradeAssignment = async (req, res) => {
   try {
+    console.log("🔥 gradeAssignment reached");
+    console.log("📥 req.body:", req.body);
+    console.log("📂 req.file:", req.file);
+    console.log("🆔 submission id:", req.params.id);
+
     const { feedback, grade } = req.body;
+
     const submission = await Submission.findById(req.params.id);
-    if (!submission) return res.status(404).json({ message: "Submission not found" });
+    if (!submission) {
+      return res.status(404).json({
+        success: false,
+        message: "Submission not found"
+      });
+    }
 
     if (feedback !== undefined) submission.feedback = feedback;
-    if (grade !== undefined) submission.grade = grade;
+
+    if (grade !== undefined && grade !== "") {
+      const parsedGrade = Number(grade);
+
+      if (Number.isNaN(parsedGrade)) {
+        return res.status(400).json({
+          success: false,
+          message: "Grade must be a number"
+        });
+      }
+
+      submission.grade = parsedGrade;
+    }
+
+    if (req.file) {
+      submission.reviewPdfUrl = `uploads/reviews/${req.file.filename}`;
+      submission.reviewPdfOriginalName = req.file.originalname;
+    }
+
+    submission.reviewedAt = new Date();
 
     await submission.save();
-    res.json({ message: "Assignment graded successfully", submission });
+
+    res.json({
+      success: true,
+      message: "Assignment graded successfully",
+      submission
+    });
   } catch (err) {
     console.error("Grading error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({
+      success: false,
+      message: "Server error while grading assignment",
+      error: err.message
+    });
   }
 };
 
@@ -1064,6 +1369,7 @@ exports.getLessons = async (req, res) => {
 // Upload middleware
 exports.uploadPDF = upload.single("pdfFile");
 
+// ✅ Create Quiz
 exports.createQuiz = async (req, res) => {
   try {
     let { title, description, courseId, questions, duration, examType, totalMarks } = req.body;
@@ -1086,13 +1392,16 @@ exports.createQuiz = async (req, res) => {
 
     if (examType === "pdf" && req.file) {
       quizData.pdfFile = req.file.path;
+      
+      // For PDF exams, use the totalMarks from the request
+      // Default to 100 if not provided
       quizData.totalMarks = totalMarks ? parseInt(totalMarks) : 100;
     }
 
     const quiz = new Quiz(quizData);
     await quiz.save();
 
-    // Structured exam
+    // Structured exam → save questions
     if (examType === "structured" && questions?.length > 0) {
       const createdQuestions = await Promise.all(
         questions.map((q) =>
@@ -1106,47 +1415,55 @@ exports.createQuiz = async (req, res) => {
           })
         )
       );
-
       quiz.questions = createdQuestions.map((q) => q._id);
+      
+      // Calculate total marks from questions
       quiz.totalMarks = createdQuestions.reduce((sum, q) => sum + q.marks, 0);
       await quiz.save();
     } else if (examType === "structured") {
+      // If structured exam but no questions, set totalMarks to 0
       quiz.totalMarks = 0;
       await quiz.save();
     }
 
-    // ✅ THIS WAS MISSING
-    res.status(201).json({ success: true, data: quiz });
+    // Attach quiz to course
+    await Course.findByIdAndUpdate(courseId, { $push: { Quiz: quiz._id } });
 
+    res.json({ success: true, data: quiz });
   } catch (err) {
     console.error("Create quiz error:", err);
     res.status(500).json({ error: "Failed to create quiz" });
   }
 };
-
-
-
-
 // ✅ Grade Attempt
 exports.gradeQuizAttempt = async (req, res) => {
   try {
     const { id } = req.params;
-    const { score, feedback } = req.body;
+    const { score, feedback, totalMarks } = req.body;
 
     const attempt = await QuizAttempt.findById(id);
-    if (!attempt) return res.status(404).json({ error: "Attempt not found" });
+    if (!attempt) {
+      return res.status(404).json({ error: "Attempt not found" });
+    }
 
     attempt.score = score;
+    attempt.totalMarks = totalMarks; // ✅ ADD THIS
     attempt.feedback = feedback;
     attempt.reviewedAt = new Date();
+
     await attempt.save();
 
-    res.json({ success: true, data: attempt });
+    res.json({
+      success: true,
+      data: attempt
+    });
+
   } catch (err) {
     console.error("Grade quiz attempt error:", err);
     res.status(500).json({ error: "Failed to grade attempt" });
   }
 };
+
 
 // ✅ List All Submissions
 exports.listQuizSubmissions = async (req, res) => {
@@ -1226,7 +1543,6 @@ exports.reviewSubmissionquiz = async (req, res) => {
     res.status(500).json({ error: "Failed to review submission" });
   }
 };
-
 // ❌ Delete Quiz Submission
 exports.deleteQuizSubmission = async (req, res) => {
   try {
@@ -1254,7 +1570,6 @@ exports.deleteQuizSubmission = async (req, res) => {
     });
   }
 };
-
 
 
 // ✅ List All Quizzes
@@ -1354,7 +1669,6 @@ exports.updateQuiz = async (req, res) => {
   }
 };
 
-    
 // ✅ Get Quiz PDF
 exports.getQuizPDF = async (req, res) => {
   try {
@@ -1405,8 +1719,6 @@ exports.generateSubscriptionCode = async (req, res) => {
     res.status(500).json({ message: "Server error." });
   }
 };
-
-
 
 
 
