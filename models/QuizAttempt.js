@@ -1,67 +1,92 @@
-// models/AssignmentSubmission.js
+// models/QuizAttempt.js
 const mongoose = require("mongoose");
 
-const assignmentSubmissionSchema = new mongoose.Schema({
-  assignmentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Content.assignments", // links to assignment inside a lesson
-    required: true
-  },
-  lessonId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Content",
-    required: true
-  },
-  courseId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Course",
-    required: true
-  },
-  studentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-    required: true
-  },
-  fileUrl: {
-    type: String, // saved file path or S3/Cloudinary link
-    required: true
-  },
-submittedAt: {
-  type: Date,
-  default: Date.now
-},
+const quizAttemptSchema = new mongoose.Schema(
+  {
+    quiz: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Quiz",
+      required: true
+    },
 
-isLate: {
-  type: Boolean,
-  default: false
-},
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
 
-deadlineAt: {
-  type: Date,
-  default: null
-},
+    answers: [
+      {
+        question: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Question"
+        },
+        answer: String,
+        isCorrect: Boolean,
+        marksObtained: {
+          type: Number,
+          default: 0
+        }
+      }
+    ],
 
-lateByMs: {
-  type: Number,
-  default: 0
-},
+    pdfAnswerFile: {
+      type: String
+    },
 
-lateByText: {
-  type: String,
-  default: null
-},
-  status: {
-    type: String,
-    enum: ["submitted", "graded"],
-    default: "submitted"
+    score: {
+      type: Number,
+      default: 0
+    },
+
+    totalMarks: {
+      type: Number,
+      default: 0
+    },
+
+    feedback: {
+      type: String
+    },
+
+    reviewedAt: {
+      type: Date
+    },
+
+    status: {
+      type: String,
+      enum: ["in_progress", "pending", "reviewed", "expired"],
+      default: "in_progress"
+    },
+
+    // When student first starts the quiz
+    startedAt: {
+      type: Date
+    },
+
+    // Real server-side quiz end time
+    expiresAt: {
+      type: Date
+    },
+
+    // When student submits/upload answers
+    submittedAt: {
+      type: Date
+    },
+
+    // Keep your old field for compatibility
+    attemptedAt: {
+      type: Date,
+      default: Date.now
+    },
+
+    pendingUntil: {
+      type: Date
+    }
   },
-  grade: {
-    type: Number, // optional if you want instructors to grade
-    default: null
-  },
-  feedback: {
-    type: String
-  }
-});
+  { timestamps: true }
+);
 
-module.exports = mongoose.model("AssignmentSubmission", assignmentSubmissionSchema);
+// Important: one student = one attempt per quiz
+quizAttemptSchema.index({ quiz: 1, student: 1 }, { unique: true });
+
+module.exports = mongoose.model("QuizAttempt", quizAttemptSchema);
